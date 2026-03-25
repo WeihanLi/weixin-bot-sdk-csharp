@@ -21,6 +21,46 @@ public sealed class WeixinMessageEventArgs : EventArgs
 }
 
 /// <summary>
+/// Event data for bot lifecycle transitions.
+/// </summary>
+public sealed class WeixinBotStateChangedEventArgs : EventArgs
+{
+    /// <summary>
+    /// Initializes a new instance of the <see cref="WeixinBotStateChangedEventArgs"/> class.
+    /// </summary>
+    /// <param name="occurredAt">The time the transition occurred.</param>
+    public WeixinBotStateChangedEventArgs(DateTimeOffset occurredAt)
+    {
+        OccurredAt = occurredAt;
+    }
+
+    /// <summary>
+    /// Gets the time the transition occurred.
+    /// </summary>
+    public DateTimeOffset OccurredAt { get; }
+}
+
+/// <summary>
+/// Event data for a successful login.
+/// </summary>
+public sealed class LoginSucceededEventArgs : EventArgs
+{
+    /// <summary>
+    /// Initializes a new instance of the <see cref="LoginSucceededEventArgs"/> class.
+    /// </summary>
+    /// <param name="result">The login result.</param>
+    public LoginSucceededEventArgs(LoginResult result)
+    {
+        Result = result;
+    }
+
+    /// <summary>
+    /// Gets the login result.
+    /// </summary>
+    public LoginResult Result { get; }
+}
+
+/// <summary>
 /// Event data for credentials loaded from persistent storage.
 /// </summary>
 public sealed class CredentialsEventArgs : EventArgs
@@ -38,4 +78,44 @@ public sealed class CredentialsEventArgs : EventArgs
     /// Gets the loaded credentials.
     /// </summary>
     public BotCredentials Credentials { get; }
+}
+
+/// <summary>
+/// Event data for an expired or invalid remote session.
+/// </summary>
+public sealed class SessionExpiredEventArgs : EventArgs
+{
+    /// <summary>
+    /// Initializes a new instance of the <see cref="SessionExpiredEventArgs"/> class.
+    /// </summary>
+    /// <param name="errorCode">The platform error code that ended the session.</param>
+    public SessionExpiredEventArgs(int errorCode)
+    {
+        ErrorCode = errorCode;
+    }
+
+    /// <summary>
+    /// Gets the platform error code that ended the session.
+    /// </summary>
+    public int ErrorCode { get; }
+}
+
+/// <summary>
+/// Event data for SDK background processing failures.
+/// </summary>
+public sealed class WeixinBotErrorEventArgs : EventArgs
+{
+    /// <summary>
+    /// Initializes a new instance of the <see cref="WeixinBotErrorEventArgs"/> class.
+    /// </summary>
+    /// <param name="exception">The exception raised by the SDK.</param>
+    public WeixinBotErrorEventArgs(Exception exception)
+    {
+        Exception = exception;
+    }
+
+    /// <summary>
+    /// Gets the exception raised by the SDK.
+    /// </summary>
+    public Exception Exception { get; }
 }

@@ -84,17 +84,17 @@ public sealed class WeixinBot : IAsyncDisposable, IDisposable
     /// <summary>
     /// Occurs when the polling loop starts.
     /// </summary>
-    public event EventHandler? Started;
+    public event EventHandler<WeixinBotStateChangedEventArgs>? Started;
 
     /// <summary>
     /// Occurs when the polling loop stops.
     /// </summary>
-    public event EventHandler? Stopped;
+    public event EventHandler<WeixinBotStateChangedEventArgs>? Stopped;
 
     /// <summary>
     /// Occurs after a successful login completes.
     /// </summary>
-    public event EventHandler<LoginResult>? LoggedIn;
+    public event EventHandler<LoginSucceededEventArgs>? LoggedIn;
 
     /// <summary>
     /// Occurs when credentials are loaded from persistent storage.
@@ -109,12 +109,12 @@ public sealed class WeixinBot : IAsyncDisposable, IDisposable
     /// <summary>
     /// Occurs when the remote session becomes invalid and polling can no longer continue.
     /// </summary>
-    public event EventHandler<int>? SessionExpired;
+    public event EventHandler<SessionExpiredEventArgs>? SessionExpired;
 
     /// <summary>
     /// Occurs when the SDK encounters an exception during background processing.
     /// </summary>
-    public event EventHandler<Exception>? Error;
+    public event EventHandler<WeixinBotErrorEventArgs>? Error;
 
     /// <summary>
     /// Performs the login flow, including QR code generation and status polling.
@@ -142,7 +142,7 @@ public sealed class WeixinBot : IAsyncDisposable, IDisposable
         }
         _pollingCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
         _pollingTask = Task.Run(() => PollLoopAsync(_pollingCts.Token), CancellationToken.None);
-        Started?.Invoke(this, EventArgs.Empty);
+        Started?.Invoke(this, new WeixinBotStateChangedEventArgs(DateTimeOffset.UtcNow));
     }
 
     /// <summary>
@@ -369,7 +369,7 @@ public sealed class WeixinBot : IAsyncDisposable, IDisposable
     /// <param name="cdnBaseUrl">Optional CDN base URL override.</param>
     /// <param name="cancellationToken">A token that can cancel the download.</param>
     /// <returns>The raw encrypted payload bytes.</returns>
-    public Task<byte[]> DownloadRawAsync(string encryptedQueryParam, string? cdnBaseUrl = null, CancellationToken cancellationToken = default)
+    internal Task<byte[]> DownloadRawAsync(string encryptedQueryParam, string? cdnBaseUrl = null, CancellationToken cancellationToken = default)
     {
         if (string.IsNullOrWhiteSpace(encryptedQueryParam))
         {
@@ -417,7 +417,7 @@ public sealed class WeixinBot : IAsyncDisposable, IDisposable
     /// </summary>
     /// <param name="text">The Markdown text to convert.</param>
     /// <returns>The converted plain text.</returns>
-    public static string MarkdownToPlainText(string text) => Markdown.ToPlainText(text);
+    internal static string MarkdownToPlainText(string text) => Markdown.ToPlainText(text);
 
     private async Task<LoginResult> LoginCoreAsync(LoginOptions? options, CancellationToken cancellationToken)
     {
@@ -431,7 +431,7 @@ public sealed class WeixinBot : IAsyncDisposable, IDisposable
             SavedAt = DateTimeOffset.UtcNow,
         };
         SaveCredentials(creds);
-        LoggedIn?.Invoke(this, result);
+        LoggedIn?.Invoke(this, new LoginSucceededEventArgs(result));
         return result;
     }
 
@@ -494,7 +494,7 @@ public sealed class WeixinBot : IAsyncDisposable, IDisposable
 
                     if (response.ErrorCode is -14 or -13)
                     {
-                        SessionExpired?.Invoke(this, response.ErrorCode);
+                        SessionExpired?.Invoke(this, new SessionExpiredEventArgs(response.ErrorCode));
                         _pollingCts?.Cancel();
                         return;
                     }
@@ -525,7 +525,7 @@ public sealed class WeixinBot : IAsyncDisposable, IDisposable
                 }
                 catch (Exception ex)
                 {
-                    Error?.Invoke(this, ex);
+                    Error?.Invoke(this, new WeixinBotErrorEventArgs(ex));
                     await Task.Delay(backoff, cancellationToken).ConfigureAwait(false);
                     var next = backoff.TotalMilliseconds * 2;
                     backoff = TimeSpan.FromMilliseconds(Math.Min(next, MaxBackoff.TotalMilliseconds));
@@ -538,7 +538,7 @@ public sealed class WeixinBot : IAsyncDisposable, IDisposable
             _pollingCts = null;
             _pollingTask = null;
             cts?.Dispose();
-            Stopped?.Invoke(this, EventArgs.Empty);
+            Stopped?.Invoke(this, new WeixinBotStateChangedEventArgs(DateTimeOffset.UtcNow));
         }
     }
 
@@ -741,7 +741,7 @@ public sealed class WeixinBot : IAsyncDisposable, IDisposable
         }
         catch (Exception ex)
         {
-            Error?.Invoke(this, ex);
+            Error?.Invoke(this, new WeixinBotErrorEventArgs(ex));
         }
     }
 
@@ -759,13 +759,20 @@ public sealed class WeixinBot : IAsyncDisposable, IDisposable
             {
                 Directory.CreateDirectory(directory);
             }
-            var payload = credentials with { SavedAt = DateTimeOffset.UtcNow };
+            var payload = new BotCredentials
+            {
+                BotToken = credentials.BotToken,
+                BotId = credentials.BotId,
+                BaseUrl = credentials.BaseUrl,
+                UserId = credentials.UserId,
+                SavedAt = DateTimeOffset.UtcNow,
+            };
             var json = JsonSerializer.Serialize(payload, _credentialSerializerOptions);
             File.WriteAllText(_credentialsPath, json);
         }
         catch (Exception ex)
         {
-            Error?.Invoke(this, ex);
+            Error?.Invoke(this, new WeixinBotErrorEventArgs(ex));
         }
     }
 

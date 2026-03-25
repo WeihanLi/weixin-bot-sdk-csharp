@@ -3,7 +3,7 @@ namespace Weixin.Bot.Sdk.Models;
 /// <summary>
 /// Persisted bot credentials that can be reused to skip QR-code login.
 /// </summary>
-public sealed record BotCredentials
+public sealed class BotCredentials
 {
     /// <summary>
     /// Gets the authenticated bot token.

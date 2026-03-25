@@ -24,19 +24,19 @@ bot.CredentialsLoaded += (_, args) =>
     Console.WriteLine($"Loaded credentials for bot {args.Credentials.BotId ?? "(unknown)"}.");
 };
 
-bot.LoggedIn += (_, result) =>
+bot.LoggedIn += (_, args) =>
 {
-    Console.WriteLine($"Logged in as bot {result.BotId ?? "(unknown)"}.");
+    Console.WriteLine($"Logged in as bot {args.Result.BotId ?? "(unknown)"}.");
 };
 
 bot.Started += (_, _) => Console.WriteLine("Polling started.");
 bot.Stopped += (_, _) => Console.WriteLine("Polling stopped.");
 bot.SessionExpired += (_, code) => Console.WriteLine($"Session expired with errcode {code}.");
-bot.Error += (_, ex) => Console.WriteLine($"SDK error: {ex.Message}");
+bot.Error += (_, args) => Console.WriteLine($"SDK error: {args.Exception.Message}");
 
 bot.MessageReceived += (_, args) =>
 {
-    _ = Task.Run(() => HandleMessageAsync(bot, args.Message, shutdown.Token), shutdown.Token);
+    _ = HandleMessageAsync(bot, args.Message, shutdown.Token);
 };
 
 if (!bot.IsLoggedIn)

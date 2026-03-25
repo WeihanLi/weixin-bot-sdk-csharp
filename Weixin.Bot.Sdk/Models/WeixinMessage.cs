@@ -19,108 +19,250 @@ public enum MessageContentKind
     Voice
 }
 
-/// <summary>
-/// Common encrypted media metadata used for CDN downloads.
-/// </summary>
-/// <param name="EncryptQueryParam">The encrypted query parameter used to request the media from the CDN.</param>
-/// <param name="AesKey">The Base64-encoded AES key, when provided.</param>
-/// <param name="EncryptType">The remote encryption type indicator.</param>
-public sealed record WeixinMedia(
-    string EncryptQueryParam,
-    string? AesKey,
-    int? EncryptType
-);
+internal sealed class WeixinMedia
+{
+    internal WeixinMedia(string encryptQueryParam, string? aesKey, int? encryptType)
+    {
+        EncryptQueryParam = encryptQueryParam;
+        AesKey = aesKey;
+        EncryptType = encryptType;
+    }
+
+    internal string EncryptQueryParam { get; }
+
+    internal string? AesKey { get; }
+
+    internal int? EncryptType { get; }
+}
 
 /// <summary>
 /// Represents an inbound image attachment.
 /// </summary>
-/// <param name="Media">Common encrypted media metadata.</param>
-/// <param name="MidSize">The mid-size image payload length reported by the platform.</param>
-/// <param name="AesKey">An image-specific AES key when returned by the platform.</param>
-public sealed record WeixinImage(
-    WeixinMedia Media,
-    string? MidSize,
-    string? AesKey
-);
+public sealed class WeixinImage
+{
+    internal WeixinImage(WeixinMedia media, string? midSize, string? aesKey)
+    {
+        Media = media;
+        MidSize = midSize;
+        AesKey = aesKey;
+    }
+
+    internal WeixinMedia Media { get; }
+
+    /// <summary>
+    /// Gets the mid-size image payload length reported by the platform.
+    /// </summary>
+    public string? MidSize { get; }
+
+    internal string? AesKey { get; }
+}
 
 /// <summary>
 /// Represents an inbound voice attachment.
 /// </summary>
-/// <param name="Media">Common encrypted media metadata.</param>
-/// <param name="EncodeType">The voice encoding format.</param>
-/// <param name="SampleRate">The voice sample rate in hertz.</param>
-/// <param name="BitsPerSample">The number of bits per audio sample.</param>
-/// <param name="Playtime">The reported playback duration.</param>
-/// <param name="Text">An optional speech-to-text transcription.</param>
-public sealed record WeixinVoice(
-    WeixinMedia Media,
-    VoiceEncodeType EncodeType,
-    int SampleRate,
-    int BitsPerSample,
-    int Playtime,
-    string? Text
-);
+public sealed class WeixinVoice
+{
+    internal WeixinVoice(WeixinMedia media, VoiceEncodeType encodeType, int sampleRate, int bitsPerSample, int playtime, string? text)
+    {
+        Media = media;
+        EncodeType = encodeType;
+        SampleRate = sampleRate;
+        BitsPerSample = bitsPerSample;
+        Playtime = playtime;
+        Text = text;
+    }
+
+    internal WeixinMedia Media { get; }
+
+    /// <summary>
+    /// Gets the voice encoding format.
+    /// </summary>
+    public VoiceEncodeType EncodeType { get; }
+
+    /// <summary>
+    /// Gets the voice sample rate in hertz.
+    /// </summary>
+    public int SampleRate { get; }
+
+    /// <summary>
+    /// Gets the number of bits per audio sample.
+    /// </summary>
+    public int BitsPerSample { get; }
+
+    /// <summary>
+    /// Gets the reported playback duration.
+    /// </summary>
+    public int Playtime { get; }
+
+    /// <summary>
+    /// Gets an optional speech-to-text transcription.
+    /// </summary>
+    public string? Text { get; }
+}
 
 /// <summary>
 /// Represents an inbound file attachment.
 /// </summary>
-/// <param name="Media">Common encrypted media metadata.</param>
-/// <param name="FileName">The original file name, when available.</param>
-/// <param name="Length">The reported file length.</param>
-public sealed record WeixinFile(
-    WeixinMedia Media,
-    string? FileName,
-    string? Length
-);
+public sealed class WeixinFile
+{
+    internal WeixinFile(WeixinMedia media, string? fileName, string? length)
+    {
+        Media = media;
+        FileName = fileName;
+        Length = length;
+    }
+
+    internal WeixinMedia Media { get; }
+
+    /// <summary>
+    /// Gets the original file name, when available.
+    /// </summary>
+    public string? FileName { get; }
+
+    /// <summary>
+    /// Gets the reported file length.
+    /// </summary>
+    public string? Length { get; }
+}
 
 /// <summary>
 /// Represents an inbound video attachment.
 /// </summary>
-/// <param name="Media">Common encrypted media metadata.</param>
-/// <param name="VideoSize">The reported video size.</param>
-public sealed record WeixinVideo(
-    WeixinMedia Media,
-    string? VideoSize
-);
+public sealed class WeixinVideo
+{
+    internal WeixinVideo(WeixinMedia media, string? videoSize)
+    {
+        Media = media;
+        VideoSize = videoSize;
+    }
+
+    internal WeixinMedia Media { get; }
+
+    /// <summary>
+    /// Gets the reported video size.
+    /// </summary>
+    public string? VideoSize { get; }
+}
 
 /// <summary>
 /// Represents a quoted message reference included with a message.
 /// </summary>
-/// <param name="Title">The quoted message title, when available.</param>
-/// <param name="Text">A plain-text summary of the quoted content.</param>
-public sealed record WeixinQuotedMessage(
-    string? Title,
-    string? Text
-);
+public sealed class WeixinQuotedMessage
+{
+    internal WeixinQuotedMessage(string? title, string? text)
+    {
+        Title = title;
+        Text = text;
+    }
+
+    /// <summary>
+    /// Gets the quoted message title, when available.
+    /// </summary>
+    public string? Title { get; }
+
+    /// <summary>
+    /// Gets a plain-text summary of the quoted content.
+    /// </summary>
+    public string? Text { get; }
+}
 
 /// <summary>
 /// Represents a parsed inbound WeChat iLink message.
 /// </summary>
-/// <param name="MessageId">The platform message identifier.</param>
-/// <param name="FromUserId">The sender user identifier.</param>
-/// <param name="ToUserId">The recipient user identifier.</param>
-/// <param name="Timestamp">The message timestamp.</param>
-/// <param name="ContextToken">The context token used for replies and typing indicators.</param>
-/// <param name="Text">The primary message text.</param>
-/// <param name="TextWithQuote">The text content including quote context when present.</param>
-/// <param name="ContentKind">The detected content kind.</param>
-/// <param name="Image">The parsed image payload, when present.</param>
-/// <param name="Video">The parsed video payload, when present.</param>
-/// <param name="File">The parsed file payload, when present.</param>
-/// <param name="Voice">The parsed voice payload, when present.</param>
-/// <param name="QuotedMessage">The parsed quoted message metadata, when present.</param>
-public sealed record WeixinMessage(
-    string MessageId,
-    string FromUserId,
-    string ToUserId,
-    DateTimeOffset Timestamp,
-    string? ContextToken,
-    string Text,
-    string TextWithQuote,
-    MessageContentKind ContentKind,
-    WeixinImage? Image,
-    WeixinVideo? Video,
-    WeixinFile? File,
-    WeixinVoice? Voice,
-    WeixinQuotedMessage? QuotedMessage
-);
+public sealed class WeixinMessage
+{
+    internal WeixinMessage(
+        string messageId,
+        string fromUserId,
+        string toUserId,
+        DateTimeOffset timestamp,
+        string? contextToken,
+        string text,
+        string textWithQuote,
+        MessageContentKind contentKind,
+        WeixinImage? image,
+        WeixinVideo? video,
+        WeixinFile? file,
+        WeixinVoice? voice,
+        WeixinQuotedMessage? quotedMessage)
+    {
+        MessageId = messageId;
+        FromUserId = fromUserId;
+        ToUserId = toUserId;
+        Timestamp = timestamp;
+        ContextToken = contextToken;
+        Text = text;
+        TextWithQuote = textWithQuote;
+        ContentKind = contentKind;
+        Image = image;
+        Video = video;
+        File = file;
+        Voice = voice;
+        QuotedMessage = quotedMessage;
+    }
+
+    /// <summary>
+    /// Gets the platform message identifier.
+    /// </summary>
+    public string MessageId { get; }
+
+    /// <summary>
+    /// Gets the sender user identifier.
+    /// </summary>
+    public string FromUserId { get; }
+
+    /// <summary>
+    /// Gets the recipient user identifier.
+    /// </summary>
+    public string ToUserId { get; }
+
+    /// <summary>
+    /// Gets the message timestamp.
+    /// </summary>
+    public DateTimeOffset Timestamp { get; }
+
+    /// <summary>
+    /// Gets the context token used for replies and typing indicators.
+    /// </summary>
+    public string? ContextToken { get; }
+
+    /// <summary>
+    /// Gets the primary message text.
+    /// </summary>
+    public string Text { get; }
+
+    /// <summary>
+    /// Gets the text content including quote context when present.
+    /// </summary>
+    public string TextWithQuote { get; }
+
+    /// <summary>
+    /// Gets the detected content kind.
+    /// </summary>
+    public MessageContentKind ContentKind { get; }
+
+    /// <summary>
+    /// Gets the parsed image payload, when present.
+    /// </summary>
+    public WeixinImage? Image { get; }
+
+    /// <summary>
+    /// Gets the parsed video payload, when present.
+    /// </summary>
+    public WeixinVideo? Video { get; }
+
+    /// <summary>
+    /// Gets the parsed file payload, when present.
+    /// </summary>
+    public WeixinFile? File { get; }
+
+    /// <summary>
+    /// Gets the parsed voice payload, when present.
+    /// </summary>
+    public WeixinVoice? Voice { get; }
+
+    /// <summary>
+    /// Gets the parsed quoted message metadata, when present.
+    /// </summary>
+    public WeixinQuotedMessage? QuotedMessage { get; }
+}

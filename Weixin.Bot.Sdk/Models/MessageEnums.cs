@@ -3,7 +3,7 @@ namespace Weixin.Bot.Sdk.Models;
 /// <summary>
 /// Identifies whether a message originated from a user or the bot.
 /// </summary>
-public enum MessageType
+internal enum MessageType
 {
     /// <summary>No message type was specified.</summary>
     None = 0,
@@ -16,7 +16,7 @@ public enum MessageType
 /// <summary>
 /// Identifies the content item type inside a message payload.
 /// </summary>
-public enum MessageItemType
+internal enum MessageItemType
 {
     /// <summary>No item type was specified.</summary>
     None = 0,
@@ -35,7 +35,7 @@ public enum MessageItemType
 /// <summary>
 /// Represents the generation state of a bot message.
 /// </summary>
-public enum MessageState
+internal enum MessageState
 {
     /// <summary>The message has not started generating.</summary>
     New = 0,
@@ -48,7 +48,7 @@ public enum MessageState
 /// <summary>
 /// Identifies the upload media type used by the iLink API.
 /// </summary>
-public enum UploadMediaType
+internal enum UploadMediaType
 {
     /// <summary>Image content.</summary>
     Image = 1,
@@ -63,7 +63,7 @@ public enum UploadMediaType
 /// <summary>
 /// Represents typing indicator state transitions.
 /// </summary>
-public enum TypingStatus
+internal enum TypingStatus
 {
     /// <summary>Show the typing indicator.</summary>
     Typing = 1,
