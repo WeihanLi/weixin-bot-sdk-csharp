@@ -1,7 +1,7 @@
 namespace Weixin.Bot.Sdk.Utilities;
 
 /// <summary>Utility to strip Markdown syntax to plain text suitable for WeChat.</summary>
-public static partial class Markdown
+internal static partial class Markdown
 {
     public static string ToPlainText(string? markdown)
     {

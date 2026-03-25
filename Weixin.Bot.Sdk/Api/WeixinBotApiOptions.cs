@@ -1,6 +1,6 @@
 namespace Weixin.Bot.Sdk.Api;
 
-public sealed record WeixinBotApiOptions
+internal sealed record WeixinBotApiOptions
 {
     public string? BaseUrl { get; init; }
     public string? CdnUrl { get; init; }

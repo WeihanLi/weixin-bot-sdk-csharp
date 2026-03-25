@@ -216,7 +216,6 @@ bot.MessageReceived += async (_, args) =>
 - `Started`
 - `Stopped`
 - `MessageReceived`
-- `PollCompleted`
 - `SessionExpired`
 - `Error`
 
@@ -264,4 +263,4 @@ This SDK currently focuses on the core iLink bot workflow:
 - send replies and media
 - download inbound media
 
-If you need additional protocol coverage, extend the lower-level `WeixinBotApi` surface first and then expose higher-level helpers from `WeixinBot`.
+If you need additional protocol coverage, extend the internal transport layer first and then expose higher-level helpers from `WeixinBot`.

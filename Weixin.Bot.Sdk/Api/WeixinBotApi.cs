@@ -6,9 +6,9 @@ using Weixin.Bot.Sdk.Models.Wire;
 
 namespace Weixin.Bot.Sdk.Api;
 
-public sealed class WeixinBotApi : IDisposable
+internal sealed class WeixinBotApi : IDisposable
 {
-    public const string DefaultBaseUrl = "https://ilinkai.weixin.qq.com";
+    internal const string DefaultBaseUrl = "https://ilinkai.weixin.qq.com";
     private static readonly TimeSpan DefaultLongPollTimeout = TimeSpan.FromSeconds(35);
     private static readonly TimeSpan DefaultApiTimeout = TimeSpan.FromSeconds(15);
 
@@ -21,7 +21,7 @@ public sealed class WeixinBotApi : IDisposable
         NumberHandling = JsonNumberHandling.AllowReadingFromString,
     };
 
-    public WeixinBotApi(WeixinBotApiOptions? options = null)
+    internal WeixinBotApi(WeixinBotApiOptions? options = null)
     {
         options ??= new();
         BaseUrl = options.BaseUrl ?? DefaultBaseUrl;
@@ -32,12 +32,12 @@ public sealed class WeixinBotApi : IDisposable
         _ownsHttpClient = options.HttpClient is null;
     }
 
-    public string BaseUrl { get; set; }
-    public string CdnUrl { get; set; }
-    public string? Token { get; set; }
-    public string Version { get; set; }
+    internal string BaseUrl { get; set; }
+    internal string CdnUrl { get; set; }
+    internal string? Token { get; set; }
+    internal string Version { get; set; }
 
-    public async Task<QrCodeResponse> GetQrCodeAsync(string botType = "3", CancellationToken cancellationToken = default)
+    internal async Task<QrCodeResponse> GetQrCodeAsync(string botType = "3", CancellationToken cancellationToken = default)
     {
         var url = BuildAbsoluteUrl($"ilink/bot/get_bot_qrcode?bot_type={Uri.EscapeDataString(botType)}");
         using var request = new HttpRequestMessage(HttpMethod.Get, url);
@@ -48,7 +48,7 @@ public sealed class WeixinBotApi : IDisposable
             ?? throw new InvalidOperationException("QR code response was empty");
     }
 
-    public async Task<QrStatusResponse> PollQrStatusAsync(string qrcode, CancellationToken cancellationToken = default)
+    internal async Task<QrStatusResponse> PollQrStatusAsync(string qrcode, CancellationToken cancellationToken = default)
     {
         var url = BuildAbsoluteUrl($"ilink/bot/get_qrcode_status?qrcode={Uri.EscapeDataString(qrcode)}");
         using var request = new HttpRequestMessage(HttpMethod.Get, url);
@@ -69,7 +69,7 @@ public sealed class WeixinBotApi : IDisposable
         }
     }
 
-    public async Task<LoginResult> LoginAsync(LoginOptions? options = null, CancellationToken cancellationToken = default)
+    internal async Task<LoginResult> LoginAsync(LoginOptions? options = null, CancellationToken cancellationToken = default)
     {
         options ??= new();
         var qr = await GetQrCodeAsync(options.BotType, cancellationToken).ConfigureAwait(false);
@@ -128,7 +128,7 @@ public sealed class WeixinBotApi : IDisposable
         throw new TimeoutException("Login timed out before confirmation");
     }
 
-    public async Task<GetUpdatesResponse> GetUpdatesAsync(string? updatesBuffer = "", CancellationToken cancellationToken = default)
+    internal async Task<GetUpdatesResponse> GetUpdatesAsync(string? updatesBuffer = "", CancellationToken cancellationToken = default)
     {
         try
         {
@@ -158,7 +158,7 @@ public sealed class WeixinBotApi : IDisposable
         }
     }
 
-    public async Task<string> SendMessageAsync(string toUserId, IEnumerable<MessageItemPayload> items, string contextToken, CancellationToken cancellationToken = default)
+    internal async Task<string> SendMessageAsync(string toUserId, IEnumerable<MessageItemPayload> items, string contextToken, CancellationToken cancellationToken = default)
     {
         var clientId = $"wx-bot-{Convert.ToHexString(RandomNumberGenerator.GetBytes(8)).ToLowerInvariant()}";
         await PostAsync<object>("ilink/bot/sendmessage", new
@@ -178,7 +178,7 @@ public sealed class WeixinBotApi : IDisposable
         return clientId;
     }
 
-    public Task<string> SendTextAsync(string toUserId, string text, string contextToken, CancellationToken cancellationToken = default)
+    internal Task<string> SendTextAsync(string toUserId, string text, string contextToken, CancellationToken cancellationToken = default)
     {
         var payload = new[]
         {
@@ -191,7 +191,7 @@ public sealed class WeixinBotApi : IDisposable
         return SendMessageAsync(toUserId, payload, contextToken, cancellationToken);
     }
 
-    public Task SendTypingAsync(string userId, string typingTicket, TypingStatus status, CancellationToken cancellationToken = default)
+    internal Task SendTypingAsync(string userId, string typingTicket, TypingStatus status, CancellationToken cancellationToken = default)
     {
         return PostAsync<object>("ilink/bot/sendtyping", new
         {
@@ -226,7 +226,7 @@ public sealed class WeixinBotApi : IDisposable
         }, DefaultApiTimeout, cancellationToken);
     }
 
-    public Task<ConfigResponse> GetConfigAsync(string userId, string contextToken, CancellationToken cancellationToken = default)
+    internal Task<ConfigResponse> GetConfigAsync(string userId, string contextToken, CancellationToken cancellationToken = default)
     {
         return PostAsync<ConfigResponse>("ilink/bot/getconfig", new
         {

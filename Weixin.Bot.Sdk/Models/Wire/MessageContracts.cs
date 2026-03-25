@@ -1,6 +1,6 @@
 namespace Weixin.Bot.Sdk.Models.Wire;
 
-public sealed class GetUpdatesResponse
+internal sealed class GetUpdatesResponse
 {
     [JsonPropertyName("ret")] public int ReturnCode { get; set; }
     [JsonPropertyName("errcode")] public int ErrorCode { get; set; }
@@ -8,7 +8,7 @@ public sealed class GetUpdatesResponse
     [JsonPropertyName("msgs")] public List<MessagePayload>? Messages { get; set; }
 }
 
-public sealed class MessagePayload
+internal sealed class MessagePayload
 {
     [JsonPropertyName("message_id")] public string? MessageId { get; set; }
     [JsonPropertyName("from_user_id")] public string? FromUserId { get; set; }
@@ -20,7 +20,7 @@ public sealed class MessagePayload
     [JsonPropertyName("item_list")] public List<MessageItemPayload>? Items { get; set; }
 }
 
-public sealed class MessageItemPayload
+internal sealed class MessageItemPayload
 {
     [JsonPropertyName("type")] public MessageItemType Type { get; set; }
     [JsonPropertyName("text_item")] public TextItemPayload? TextItem { get; set; }
@@ -31,19 +31,19 @@ public sealed class MessageItemPayload
     [JsonPropertyName("ref_msg")] public ReferencedMessagePayload? ReferencedMessage { get; set; }
 }
 
-public sealed class TextItemPayload
+internal sealed class TextItemPayload
 {
     [JsonPropertyName("text")] public string? Text { get; set; }
 }
 
-public sealed class ImageItemPayload
+internal sealed class ImageItemPayload
 {
     [JsonPropertyName("media")] public MediaPayload? Media { get; set; }
     [JsonPropertyName("mid_size")] public string? MidSize { get; set; }
     [JsonPropertyName("aeskey")] public string? AesKey { get; set; }
 }
 
-public sealed class VoiceItemPayload
+internal sealed class VoiceItemPayload
 {
     [JsonPropertyName("media")] public MediaPayload? Media { get; set; }
     [JsonPropertyName("encode_type")] public VoiceEncodeType EncodeType { get; set; } = VoiceEncodeType.Silk;
@@ -53,27 +53,27 @@ public sealed class VoiceItemPayload
     [JsonPropertyName("text")] public string? Text { get; set; }
 }
 
-public sealed class FileItemPayload
+internal sealed class FileItemPayload
 {
     [JsonPropertyName("media")] public MediaPayload? Media { get; set; }
     [JsonPropertyName("file_name")] public string? FileName { get; set; }
     [JsonPropertyName("len")] public string? Length { get; set; }
 }
 
-public sealed class VideoItemPayload
+internal sealed class VideoItemPayload
 {
     [JsonPropertyName("media")] public MediaPayload? Media { get; set; }
     [JsonPropertyName("video_size")] public string? VideoSize { get; set; }
 }
 
-public sealed class MediaPayload
+internal sealed class MediaPayload
 {
     [JsonPropertyName("encrypt_query_param")] public string? EncryptQueryParam { get; set; }
     [JsonPropertyName("aes_key")] public string? AesKey { get; set; }
     [JsonPropertyName("encrypt_type")] public int? EncryptType { get; set; }
 }
 
-public sealed class ReferencedMessagePayload
+internal sealed class ReferencedMessagePayload
 {
     [JsonPropertyName("title")] public string? Title { get; set; }
     [JsonPropertyName("message_item")] public MessageItemPayload? MessageItem { get; set; }

@@ -1,12 +1,12 @@
 namespace Weixin.Bot.Sdk.Models.Wire;
 
-public sealed class QrCodeResponse
+internal sealed class QrCodeResponse
 {
     [JsonPropertyName("qrcode")] public string? QrCode { get; set; }
     [JsonPropertyName("qrcode_img_content")] public string? QrCodeImageContent { get; set; }
 }
 
-public sealed class QrStatusResponse
+internal sealed class QrStatusResponse
 {
     [JsonPropertyName("status")] public string? Status { get; set; }
     [JsonPropertyName("bot_token")] public string? BotToken { get; set; }
@@ -15,12 +15,12 @@ public sealed class QrStatusResponse
     [JsonPropertyName("ilink_user_id")] public string? UserId { get; set; }
 }
 
-public sealed class UploadUrlResponse
+internal sealed class UploadUrlResponse
 {
     [JsonPropertyName("upload_param")] public string? UploadParam { get; set; }
 }
 
-public sealed class ConfigResponse
+internal sealed class ConfigResponse
 {
     [JsonPropertyName("typing_ticket")] public string? TypingTicket { get; set; }
 }

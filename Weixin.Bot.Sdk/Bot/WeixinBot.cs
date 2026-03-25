@@ -8,6 +8,9 @@ using Weixin.Bot.Sdk.Utilities;
 
 namespace Weixin.Bot.Sdk.Bot;
 
+/// <summary>
+/// High-level client for authenticating a WeChat iLink bot, receiving messages, and sending replies or media.
+/// </summary>
 public sealed class WeixinBot : IAsyncDisposable, IDisposable
 {
     private const int ContextCacheLimit = 1000;
@@ -34,6 +37,10 @@ public sealed class WeixinBot : IAsyncDisposable, IDisposable
     private BotCredentials? _credentials;
     private bool _disposed;
 
+    /// <summary>
+    /// Initializes a new bot instance.
+    /// </summary>
+    /// <param name="options">Optional bot configuration.</param>
     public WeixinBot(WeixinBotOptions? options = null)
     {
         options ??= new();
@@ -58,24 +65,70 @@ public sealed class WeixinBot : IAsyncDisposable, IDisposable
         TryLoadCredentials();
     }
 
-    public WeixinBotApi Api => _api;
     internal CdnClient Cdn => _cdnClient;
+    /// <summary>
+    /// Gets a value indicating whether the bot currently has an authenticated token.
+    /// </summary>
     public bool IsLoggedIn => !string.IsNullOrWhiteSpace(_api.Token);
+
+    /// <summary>
+    /// Gets a value indicating whether the polling loop is currently active.
+    /// </summary>
     public bool IsRunning => _pollingTask is { IsCompleted: false };
+
+    /// <summary>
+    /// Gets the credentials currently loaded into the bot, if any.
+    /// </summary>
     public BotCredentials? CurrentCredentials => _credentials;
 
+    /// <summary>
+    /// Occurs when the polling loop starts.
+    /// </summary>
     public event EventHandler? Started;
+
+    /// <summary>
+    /// Occurs when the polling loop stops.
+    /// </summary>
     public event EventHandler? Stopped;
+
+    /// <summary>
+    /// Occurs after a successful login completes.
+    /// </summary>
     public event EventHandler<LoginResult>? LoggedIn;
+
+    /// <summary>
+    /// Occurs when credentials are loaded from persistent storage.
+    /// </summary>
     public event EventHandler<CredentialsEventArgs>? CredentialsLoaded;
+
+    /// <summary>
+    /// Occurs when a new inbound user message is received and parsed.
+    /// </summary>
     public event EventHandler<WeixinMessageEventArgs>? MessageReceived;
-    public event EventHandler<GetUpdatesResponse>? PollCompleted;
+
+    /// <summary>
+    /// Occurs when the remote session becomes invalid and polling can no longer continue.
+    /// </summary>
     public event EventHandler<int>? SessionExpired;
+
+    /// <summary>
+    /// Occurs when the SDK encounters an exception during background processing.
+    /// </summary>
     public event EventHandler<Exception>? Error;
 
+    /// <summary>
+    /// Performs the login flow, including QR code generation and status polling.
+    /// </summary>
+    /// <param name="options">Optional login behavior overrides.</param>
+    /// <param name="cancellationToken">A token that can cancel the login operation.</param>
+    /// <returns>The authenticated login result.</returns>
     public Task<LoginResult> LoginAsync(LoginOptions? options = null, CancellationToken cancellationToken = default)
         => LoginCoreAsync(options, cancellationToken);
 
+    /// <summary>
+    /// Starts the long-polling loop for receiving messages.
+    /// </summary>
+    /// <param name="cancellationToken">A token that can stop polling.</param>
     public void Start(CancellationToken cancellationToken = default)
     {
         ThrowIfDisposed();
@@ -92,6 +145,10 @@ public sealed class WeixinBot : IAsyncDisposable, IDisposable
         Started?.Invoke(this, EventArgs.Empty);
     }
 
+    /// <summary>
+    /// Stops the polling loop if it is running.
+    /// </summary>
+    /// <returns>A task that completes when shutdown finishes.</returns>
     public async Task StopAsync()
     {
         var cts = _pollingCts;
@@ -116,18 +173,42 @@ public sealed class WeixinBot : IAsyncDisposable, IDisposable
         }
     }
 
+    /// <summary>
+    /// Sends a text reply using the context token from an inbound message.
+    /// </summary>
+    /// <param name="message">The inbound message to reply to.</param>
+    /// <param name="text">The reply text to send.</param>
+    /// <param name="cancellationToken">A token that can cancel the send.</param>
+    /// <returns>The generated client message identifier.</returns>
     public Task<string> ReplyAsync(WeixinMessage message, string text, CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(message);
         return SendTextAsync(message.FromUserId, text, message.ContextToken, cancellationToken);
     }
 
+    /// <summary>
+    /// Sends a text message to a user.
+    /// </summary>
+    /// <param name="toUserId">The target user identifier.</param>
+    /// <param name="text">The text to send.</param>
+    /// <param name="contextToken">An optional context token. If omitted, a cached token for the user is used.</param>
+    /// <param name="cancellationToken">A token that can cancel the send.</param>
+    /// <returns>The generated client message identifier.</returns>
     public Task<string> SendTextAsync(string toUserId, string text, string? contextToken = null, CancellationToken cancellationToken = default)
     {
         var token = EnsureContextToken(toUserId, contextToken);
         return _api.SendTextAsync(toUserId, text ?? string.Empty, token, cancellationToken);
     }
 
+    /// <summary>
+    /// Sends an image to a user.
+    /// </summary>
+    /// <param name="toUserId">The target user identifier.</param>
+    /// <param name="image">The raw image bytes.</param>
+    /// <param name="caption">Optional caption text to send before the image.</param>
+    /// <param name="contextToken">An optional context token. If omitted, a cached token for the user is used.</param>
+    /// <param name="cancellationToken">A token that can cancel the send.</param>
+    /// <returns>A task that completes when the image has been sent.</returns>
     public async Task SendImageAsync(string toUserId, ReadOnlyMemory<byte> image, string? caption = null, string? contextToken = null, CancellationToken cancellationToken = default)
     {
         await SendMediaAsync(toUserId, image, caption, contextToken, UploadMediaType.Image, prepared => new MessageItemPayload
@@ -146,6 +227,15 @@ public sealed class WeixinBot : IAsyncDisposable, IDisposable
         }, cancellationToken).ConfigureAwait(false);
     }
 
+    /// <summary>
+    /// Sends a video to a user.
+    /// </summary>
+    /// <param name="toUserId">The target user identifier.</param>
+    /// <param name="video">The raw video bytes.</param>
+    /// <param name="caption">Optional caption text to send before the video.</param>
+    /// <param name="contextToken">An optional context token. If omitted, a cached token for the user is used.</param>
+    /// <param name="cancellationToken">A token that can cancel the send.</param>
+    /// <returns>A task that completes when the video has been sent.</returns>
     public async Task SendVideoAsync(string toUserId, ReadOnlyMemory<byte> video, string? caption = null, string? contextToken = null, CancellationToken cancellationToken = default)
     {
         await SendMediaAsync(toUserId, video, caption, contextToken, UploadMediaType.Video, prepared => new MessageItemPayload
@@ -164,6 +254,16 @@ public sealed class WeixinBot : IAsyncDisposable, IDisposable
         }, cancellationToken).ConfigureAwait(false);
     }
 
+    /// <summary>
+    /// Sends a file to a user.
+    /// </summary>
+    /// <param name="toUserId">The target user identifier.</param>
+    /// <param name="file">The raw file bytes.</param>
+    /// <param name="fileName">The filename presented to the recipient.</param>
+    /// <param name="caption">Optional caption text to send before the file.</param>
+    /// <param name="contextToken">An optional context token. If omitted, a cached token for the user is used.</param>
+    /// <param name="cancellationToken">A token that can cancel the send.</param>
+    /// <returns>A task that completes when the file has been sent.</returns>
     public async Task SendFileAsync(string toUserId, ReadOnlyMemory<byte> file, string fileName, string? caption = null, string? contextToken = null, CancellationToken cancellationToken = default)
     {
         if (string.IsNullOrWhiteSpace(fileName))
@@ -188,6 +288,15 @@ public sealed class WeixinBot : IAsyncDisposable, IDisposable
         }, cancellationToken).ConfigureAwait(false);
     }
 
+    /// <summary>
+    /// Sends a voice message to a user.
+    /// </summary>
+    /// <param name="toUserId">The target user identifier.</param>
+    /// <param name="voice">The raw voice payload bytes.</param>
+    /// <param name="options">Optional voice metadata such as encoding and duration.</param>
+    /// <param name="contextToken">An optional context token. If omitted, a cached token for the user is used.</param>
+    /// <param name="cancellationToken">A token that can cancel the send.</param>
+    /// <returns>A task that completes when the voice message has been sent.</returns>
     public async Task SendVoiceAsync(string toUserId, ReadOnlyMemory<byte> voice, VoiceSendOptions? options = null, string? contextToken = null, CancellationToken cancellationToken = default)
     {
         options ??= new();
@@ -213,18 +322,53 @@ public sealed class WeixinBot : IAsyncDisposable, IDisposable
         await _api.SendMessageAsync(toUserId, new[] { item }, token, cancellationToken).ConfigureAwait(false);
     }
 
-    public Task<byte[]> DownloadImageAsync(ImageItemPayload image, string? cdnBaseUrl = null, CancellationToken cancellationToken = default)
+    /// <summary>
+    /// Downloads and decrypts an inbound image payload.
+    /// </summary>
+    /// <param name="image">The image metadata from an inbound message.</param>
+    /// <param name="cdnBaseUrl">Optional CDN base URL override.</param>
+    /// <param name="cancellationToken">A token that can cancel the download.</param>
+    /// <returns>The decrypted image bytes.</returns>
+    public Task<byte[]> DownloadImageAsync(WeixinImage image, string? cdnBaseUrl = null, CancellationToken cancellationToken = default)
         => DownloadMediaAsync(image?.Media, image?.AesKey, cdnBaseUrl, cancellationToken);
 
-    public Task<byte[]> DownloadVoiceAsync(VoiceItemPayload voice, string? cdnBaseUrl = null, CancellationToken cancellationToken = default)
+    /// <summary>
+    /// Downloads and decrypts an inbound voice payload.
+    /// </summary>
+    /// <param name="voice">The voice metadata from an inbound message.</param>
+    /// <param name="cdnBaseUrl">Optional CDN base URL override.</param>
+    /// <param name="cancellationToken">A token that can cancel the download.</param>
+    /// <returns>The decrypted voice bytes.</returns>
+    public Task<byte[]> DownloadVoiceAsync(WeixinVoice voice, string? cdnBaseUrl = null, CancellationToken cancellationToken = default)
         => DownloadMediaAsync(voice?.Media, null, cdnBaseUrl, cancellationToken);
 
-    public Task<byte[]> DownloadFileAsync(FileItemPayload file, string? cdnBaseUrl = null, CancellationToken cancellationToken = default)
+    /// <summary>
+    /// Downloads and decrypts an inbound file payload.
+    /// </summary>
+    /// <param name="file">The file metadata from an inbound message.</param>
+    /// <param name="cdnBaseUrl">Optional CDN base URL override.</param>
+    /// <param name="cancellationToken">A token that can cancel the download.</param>
+    /// <returns>The decrypted file bytes.</returns>
+    public Task<byte[]> DownloadFileAsync(WeixinFile file, string? cdnBaseUrl = null, CancellationToken cancellationToken = default)
         => DownloadMediaAsync(file?.Media, null, cdnBaseUrl, cancellationToken);
 
-    public Task<byte[]> DownloadVideoAsync(VideoItemPayload video, string? cdnBaseUrl = null, CancellationToken cancellationToken = default)
+    /// <summary>
+    /// Downloads and decrypts an inbound video payload.
+    /// </summary>
+    /// <param name="video">The video metadata from an inbound message.</param>
+    /// <param name="cdnBaseUrl">Optional CDN base URL override.</param>
+    /// <param name="cancellationToken">A token that can cancel the download.</param>
+    /// <returns>The decrypted video bytes.</returns>
+    public Task<byte[]> DownloadVideoAsync(WeixinVideo video, string? cdnBaseUrl = null, CancellationToken cancellationToken = default)
         => DownloadMediaAsync(video?.Media, null, cdnBaseUrl, cancellationToken);
 
+    /// <summary>
+    /// Downloads the raw encrypted payload from the CDN without decrypting it.
+    /// </summary>
+    /// <param name="encryptedQueryParam">The encrypted CDN query parameter.</param>
+    /// <param name="cdnBaseUrl">Optional CDN base URL override.</param>
+    /// <param name="cancellationToken">A token that can cancel the download.</param>
+    /// <returns>The raw encrypted payload bytes.</returns>
     public Task<byte[]> DownloadRawAsync(string encryptedQueryParam, string? cdnBaseUrl = null, CancellationToken cancellationToken = default)
     {
         if (string.IsNullOrWhiteSpace(encryptedQueryParam))
@@ -234,6 +378,13 @@ public sealed class WeixinBot : IAsyncDisposable, IDisposable
         return _cdnClient.DownloadRawAsync(encryptedQueryParam, cdnBaseUrl ?? _api.CdnUrl, cancellationToken);
     }
 
+    /// <summary>
+    /// Sends a typing indicator to a user.
+    /// </summary>
+    /// <param name="userId">The target user identifier.</param>
+    /// <param name="contextToken">An optional context token. If omitted, a cached token for the user is used.</param>
+    /// <param name="cancellationToken">A token that can cancel the operation.</param>
+    /// <returns>A task that completes when the typing indicator has been sent.</returns>
     public async Task SendTypingAsync(string userId, string? contextToken = null, CancellationToken cancellationToken = default)
     {
         var token = EnsureContextToken(userId, contextToken);
@@ -244,6 +395,13 @@ public sealed class WeixinBot : IAsyncDisposable, IDisposable
         }
     }
 
+    /// <summary>
+    /// Cancels the typing indicator for a user.
+    /// </summary>
+    /// <param name="userId">The target user identifier.</param>
+    /// <param name="contextToken">An optional context token. If omitted, a cached token for the user is used.</param>
+    /// <param name="cancellationToken">A token that can cancel the operation.</param>
+    /// <returns>A task that completes when the typing indicator has been cancelled.</returns>
     public async Task CancelTypingAsync(string userId, string? contextToken = null, CancellationToken cancellationToken = default)
     {
         var token = EnsureContextToken(userId, contextToken);
@@ -254,6 +412,11 @@ public sealed class WeixinBot : IAsyncDisposable, IDisposable
         }
     }
 
+    /// <summary>
+    /// Converts Markdown text into plain text suitable for WeChat message content.
+    /// </summary>
+    /// <param name="text">The Markdown text to convert.</param>
+    /// <returns>The converted plain text.</returns>
     public static string MarkdownToPlainText(string text) => Markdown.ToPlainText(text);
 
     private async Task<LoginResult> LoginCoreAsync(LoginOptions? options, CancellationToken cancellationToken)
@@ -300,7 +463,7 @@ public sealed class WeixinBot : IAsyncDisposable, IDisposable
         }
     }
 
-    private Task<byte[]> DownloadMediaAsync(MediaPayload? media, string? overrideHexKey, string? cdnBaseUrl, CancellationToken cancellationToken)
+    private Task<byte[]> DownloadMediaAsync(WeixinMedia? media, string? overrideHexKey, string? cdnBaseUrl, CancellationToken cancellationToken)
     {
         if (media?.EncryptQueryParam is null)
         {
@@ -354,7 +517,6 @@ public sealed class WeixinBot : IAsyncDisposable, IDisposable
                         }
                     }
 
-                    PollCompleted?.Invoke(this, response);
                     backoff = InitialBackoff;
                 }
                 catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
@@ -439,8 +601,7 @@ public sealed class WeixinBot : IAsyncDisposable, IDisposable
                 null,
                 null,
                 null,
-                null,
-                payload);
+                null);
         }
 
         var text = string.Empty;
@@ -469,42 +630,42 @@ public sealed class WeixinBot : IAsyncDisposable, IDisposable
                     {
                         textWithQuote = $"[引用: {combined}]\n{text}";
                     }
-                    quoted = new WeixinQuotedMessage(reference.Title, reference.MessageItem, combined);
+                    quoted = new WeixinQuotedMessage(reference.Title, combined);
                 }
                 break;
             }
         }
 
         MessageContentKind kind = MessageContentKind.Text;
-        ImageItemPayload? image = null;
-        VideoItemPayload? video = null;
-        FileItemPayload? file = null;
-        VoiceItemPayload? voice = null;
+        WeixinImage? image = null;
+        WeixinVideo? video = null;
+        WeixinFile? file = null;
+        WeixinVoice? voice = null;
 
         foreach (var item in payload.Items)
         {
             if (item.Type == MessageItemType.Image && item.ImageItem is { } img)
             {
                 kind = MessageContentKind.Image;
-                image = img;
+                image = ToWeixinImage(img);
                 break;
             }
             if (item.Type == MessageItemType.Video && item.VideoItem is { } vid)
             {
                 kind = MessageContentKind.Video;
-                video = vid;
+                video = ToWeixinVideo(vid);
                 break;
             }
             if (item.Type == MessageItemType.File && item.FileItem is { } fileItem)
             {
                 kind = MessageContentKind.File;
-                file = fileItem;
+                file = ToWeixinFile(fileItem);
                 break;
             }
             if (item.Type == MessageItemType.Voice && item.VoiceItem is { } voiceItem)
             {
                 kind = MessageContentKind.Voice;
-                voice = voiceItem;
+                voice = ToWeixinVoice(voiceItem);
                 if (string.IsNullOrWhiteSpace(text) && !string.IsNullOrWhiteSpace(voiceItem.Text))
                 {
                     text = voiceItem.Text!;
@@ -532,8 +693,29 @@ public sealed class WeixinBot : IAsyncDisposable, IDisposable
             video,
             file,
             voice,
-            quoted,
-            payload);
+            quoted);
+    }
+
+    private static WeixinImage ToWeixinImage(ImageItemPayload image)
+        => new(ToWeixinMedia(image.Media), image.MidSize, image.AesKey);
+
+    private static WeixinVoice ToWeixinVoice(VoiceItemPayload voice)
+        => new(ToWeixinMedia(voice.Media), voice.EncodeType, voice.SampleRate, voice.BitsPerSample, voice.Playtime, voice.Text);
+
+    private static WeixinFile ToWeixinFile(FileItemPayload file)
+        => new(ToWeixinMedia(file.Media), file.FileName, file.Length);
+
+    private static WeixinVideo ToWeixinVideo(VideoItemPayload video)
+        => new(ToWeixinMedia(video.Media), video.VideoSize);
+
+    private static WeixinMedia ToWeixinMedia(MediaPayload? media)
+    {
+        if (media?.EncryptQueryParam is null)
+        {
+            throw new InvalidOperationException("Media payload missing encrypt_query_param");
+        }
+
+        return new WeixinMedia(media.EncryptQueryParam, media.AesKey, media.EncryptType);
     }
 
     private void TryLoadCredentials()
@@ -604,6 +786,10 @@ public sealed class WeixinBot : IAsyncDisposable, IDisposable
         }
     }
 
+    /// <summary>
+    /// Stops background work and asynchronously releases resources used by the bot.
+    /// </summary>
+    /// <returns>A task representing asynchronous disposal.</returns>
     public async ValueTask DisposeAsync()
     {
         if (_disposed)
@@ -620,6 +806,9 @@ public sealed class WeixinBot : IAsyncDisposable, IDisposable
         _disposed = true;
     }
 
+    /// <summary>
+    /// Stops background work and releases resources used by the bot.
+    /// </summary>
     public void Dispose()
     {
         DisposeAsync().AsTask().GetAwaiter().GetResult();
