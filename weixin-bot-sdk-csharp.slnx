@@ -1,0 +1,4 @@
+<Solution>
+  <Project Path="Weixin.Bot.Sdk.Sample/Weixin.Bot.Sdk.Sample.csproj" />
+  <Project Path="Weixin.Bot.Sdk/Weixin.Bot.Sdk.csproj" />
+</Solution>

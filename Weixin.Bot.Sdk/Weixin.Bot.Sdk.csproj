@@ -7,11 +7,12 @@
     <LangVersion>latest</LangVersion>
     <GenerateDocumentationFile>true</GenerateDocumentationFile>
     <AssemblyTitle>Weixin Bot SDK</AssemblyTitle>
+    <Version>0.1.0</Version>
     <PackageId>Weixin.Bot.Sdk</PackageId>
     <Authors>Weixin Bot SDK Contributors</Authors>
     <Description>Modern .NET SDK for the WeChat iLink Bot protocol.</Description>
     <RepositoryUrl>https://github.com/WeihanLi/weixin-bot-sdk-csharp</RepositoryUrl>
-    <PackageReadmeFile>../README.md</PackageReadmeFile>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
   </PropertyGroup>
 
   <ItemGroup>
