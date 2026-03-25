@@ -1,0 +1,29 @@
+name: Build
+
+on:
+  push:
+    branches:
+      - "**"
+  pull_request:
+
+jobs:
+  validate:
+    name: Restore and Build
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v5
+        with:
+          dotnet-version: |
+            8.0.x
+            10.0.x
+
+      - name: Build SDK project
+        run: dotnet build ./Weixin.Bot.Sdk/Weixin.Bot.Sdk.csproj -c Release
+
+      - name: Build sample project
+        run: dotnet build ./Weixin.Bot.Sdk.Sample/Weixin.Bot.Sdk.Sample.csproj -c Release

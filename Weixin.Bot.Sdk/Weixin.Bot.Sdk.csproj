@@ -1,0 +1,21 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <LangVersion>latest</LangVersion>
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
+    <AssemblyTitle>Weixin Bot SDK</AssemblyTitle>
+    <PackageId>Weixin.Bot.Sdk</PackageId>
+    <Authors>Weixin Bot SDK Contributors</Authors>
+    <Description>Modern .NET SDK for the WeChat iLink Bot protocol.</Description>
+    <RepositoryUrl>https://github.com/WeihanLi/weixin-bot-sdk-csharp</RepositoryUrl>
+    <PackageReadmeFile>../README.md</PackageReadmeFile>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <None Include="../README.md" Pack="true" PackagePath="/" />
+  </ItemGroup>
+
+</Project>
