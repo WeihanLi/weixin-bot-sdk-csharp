@@ -503,7 +503,7 @@ public sealed class WeixinBot : IAsyncDisposable, IDisposable
                     {
                         foreach (var raw in response.Messages)
                         {
-                            if (raw.MessageType != MessageType.User)
+                            if (!IsInboundMessage(raw))
                             {
                                 continue;
                             }
@@ -582,6 +582,34 @@ public sealed class WeixinBot : IAsyncDisposable, IDisposable
         }
 
         throw new InvalidOperationException($"No context token for user {userId}. Wait for a message before replying.");
+    }
+
+    private bool IsInboundMessage(MessagePayload payload)
+    {
+        var botUserId = _credentials?.UserId;
+        var fromUserId = payload.FromUserId;
+        var toUserId = payload.ToUserId;
+
+        if (!string.IsNullOrWhiteSpace(botUserId))
+        {
+            if (string.Equals(fromUserId, botUserId, StringComparison.Ordinal))
+            {
+                return false;
+            }
+
+            if (string.Equals(toUserId, botUserId, StringComparison.Ordinal) && !string.IsNullOrWhiteSpace(fromUserId))
+            {
+                return true;
+            }
+        }
+
+        return payload.MessageType switch
+        {
+            MessageType.User => true,
+            MessageType.Bot => false,
+            _ => !string.IsNullOrWhiteSpace(fromUserId)
+                && (!string.IsNullOrWhiteSpace(payload.ContextToken) || payload.Items is { Count: > 0 }),
+        };
     }
 
     private WeixinMessage? ParseMessage(MessagePayload payload)
