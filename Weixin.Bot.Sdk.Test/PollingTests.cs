@@ -1,5 +1,4 @@
 using System.Net;
-using System.Text;
 using Weixin.Bot.Sdk.Bot;
 using Weixin.Bot.Sdk.Models;
 using Xunit;
@@ -11,12 +10,11 @@ public sealed class PollingTests
     [Fact]
     public async Task Start_RaisesMessageReceived_ForInboundMessageAddressedToBot()
     {
-        var credentialsPath = CreateCredentialsFile("bot-user");
+        var credentialsPath = TestSupport.CreateCredentialsFile("bot-user");
         try
         {
-            var handler = new QueueHttpMessageHandler(
-            [
-                Json("""
+            var handler = new ScriptedHttpMessageHandler();
+            handler.EnqueueJson("""
                 {
                   "ret": 0,
                   "errcode": 0,
@@ -41,8 +39,7 @@ public sealed class PollingTests
                     }
                   ]
                 }
-                """),
-            ]);
+                """);
 
             using var httpClient = new HttpClient(handler);
             await using var bot = new WeixinBot(new WeixinBotOptions
@@ -80,12 +77,11 @@ public sealed class PollingTests
     [Fact]
     public async Task Start_DoesNotRaiseMessageReceived_ForSelfAuthoredMessage()
     {
-        var credentialsPath = CreateCredentialsFile("bot-user");
+        var credentialsPath = TestSupport.CreateCredentialsFile("bot-user");
         try
         {
-            var handler = new QueueHttpMessageHandler(
-            [
-                Json("""
+            var handler = new ScriptedHttpMessageHandler();
+            handler.EnqueueJson("""
                 {
                   "ret": 0,
                   "errcode": 0,
@@ -110,8 +106,7 @@ public sealed class PollingTests
                     }
                   ]
                 }
-                """),
-            ]);
+                """);
 
             using var httpClient = new HttpClient(handler);
             await using var bot = new WeixinBot(new WeixinBotOptions
@@ -140,9 +135,8 @@ public sealed class PollingTests
     [Fact]
     public async Task Start_RaisesMessageReceived_WhenMessageTypeIsUnknownButContextExists()
     {
-        var handler = new QueueHttpMessageHandler(
-        [
-            Json("""
+        var handler = new ScriptedHttpMessageHandler();
+        handler.EnqueueJson("""
             {
               "ret": 0,
               "errcode": 0,
@@ -167,8 +161,7 @@ public sealed class PollingTests
                 }
               ]
             }
-            """),
-        ]);
+            """);
 
         using var httpClient = new HttpClient(handler);
         await using var bot = new WeixinBot(new WeixinBotOptions
@@ -189,48 +182,5 @@ public sealed class PollingTests
 
         cts.Cancel();
         await bot.StopAsync();
-    }
-
-    private static string CreateCredentialsFile(string userId)
-    {
-        var path = Path.Combine(Path.GetTempPath(), $"{Guid.NewGuid():N}.weixin-bot.credentials.json");
-        File.WriteAllText(path, $$"""
-        {
-          "botToken": "bot-token",
-          "botId": "bot-id",
-          "baseUrl": "https://unit.test/",
-          "userId": "{{userId}}",
-          "savedAt": "2026-04-05T00:00:00+00:00"
-        }
-        """);
-        return path;
-    }
-
-    private static HttpResponseMessage Json(string body)
-        => new(HttpStatusCode.OK)
-        {
-            Content = new StringContent(body, Encoding.UTF8, "application/json"),
-        };
-
-    private sealed class QueueHttpMessageHandler(IReadOnlyCollection<HttpResponseMessage> initialResponses) : HttpMessageHandler
-    {
-        private readonly Queue<HttpResponseMessage> _responses = new(initialResponses);
-
-        protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
-        {
-            if (_responses.Count > 0)
-            {
-                return Task.FromResult(_responses.Dequeue());
-            }
-
-            return Task.FromResult(Json("""
-            {
-              "ret": 0,
-              "errcode": 0,
-              "get_updates_buf": "",
-              "msgs": []
-            }
-            """));
-        }
     }
 }
