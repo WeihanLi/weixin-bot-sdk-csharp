@@ -1,4 +1,3 @@
-using System.Security.Cryptography;
 using Weixin.Bot.Sdk.Api;
 using Weixin.Bot.Sdk.Models;
 

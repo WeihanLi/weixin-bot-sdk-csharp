@@ -1,10 +1,7 @@
-using System.Globalization;
-using System.Text.Json;
 using Weixin.Bot.Sdk.Api;
 using Weixin.Bot.Sdk.Media;
 using Weixin.Bot.Sdk.Models;
 using Weixin.Bot.Sdk.Models.Wire;
-using Weixin.Bot.Sdk.Utilities;
 
 namespace Weixin.Bot.Sdk.Bot;
 
@@ -24,7 +21,7 @@ public sealed class WeixinBot : IAsyncDisposable, IDisposable
     private readonly string? _credentialsPath;
     private readonly Dictionary<string, string> _contextTokens = new();
     private readonly Queue<string> _contextOrder = new();
-    private readonly object _contextLock = new();
+    private readonly Lock _contextLock = new();
     private readonly JsonSerializerOptions _credentialSerializerOptions = new()
     {
         WriteIndented = true,
@@ -433,13 +430,6 @@ public sealed class WeixinBot : IAsyncDisposable, IDisposable
             await _api.SendTypingAsync(userId, config.TypingTicket!, TypingStatus.Cancel, cancellationToken).ConfigureAwait(false);
         }
     }
-
-    /// <summary>
-    /// Converts Markdown text into plain text suitable for WeChat message content.
-    /// </summary>
-    /// <param name="text">The Markdown text to convert.</param>
-    /// <returns>The converted plain text.</returns>
-    internal static string MarkdownToPlainText(string text) => Markdown.ToPlainText(text);
 
     private async Task<LoginResult> LoginCoreAsync(LoginOptions? options, CancellationToken cancellationToken)
     {

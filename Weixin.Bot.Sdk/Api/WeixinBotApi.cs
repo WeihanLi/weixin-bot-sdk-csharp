@@ -1,7 +1,6 @@
 using System.Buffers.Binary;
 using System.Net.Http.Headers;
 using System.Net.Http.Json;
-
 using Weixin.Bot.Sdk.Media;
 using Weixin.Bot.Sdk.Models;
 using Weixin.Bot.Sdk.Models.Wire;

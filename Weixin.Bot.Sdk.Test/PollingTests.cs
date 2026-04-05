@@ -1,4 +1,3 @@
-using System.Net;
 using Weixin.Bot.Sdk.Bot;
 using Weixin.Bot.Sdk.Models;
 using Xunit;
