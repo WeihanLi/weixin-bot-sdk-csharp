@@ -655,19 +655,6 @@ public sealed class WeixinBot : IAsyncDisposable, IDisposable
         var fromUserId = payload.FromUserId;
         var toUserId = payload.ToUserId;
 
-        if (!string.IsNullOrWhiteSpace(botUserId))
-        {
-            if (string.Equals(fromUserId, botUserId, StringComparison.Ordinal))
-            {
-                return false;
-            }
-
-            if (string.Equals(toUserId, botUserId, StringComparison.Ordinal) && !string.IsNullOrWhiteSpace(fromUserId))
-            {
-                return true;
-            }
-        }
-
         return payload.MessageType switch
         {
             MessageType.User => true,
@@ -677,7 +664,7 @@ public sealed class WeixinBot : IAsyncDisposable, IDisposable
         };
     }
 
-    private WeixinMessage? ParseMessage(MessagePayload payload)
+    private static WeixinMessage? ParseMessage(MessagePayload payload)
     {
         if (payload.Items is null || payload.Items.Count == 0)
         {

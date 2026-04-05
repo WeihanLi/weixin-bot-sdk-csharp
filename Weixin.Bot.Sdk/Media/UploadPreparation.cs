@@ -20,12 +20,12 @@ internal static class UploadPreparation
         }
 
         var rawSize = buffer.Length;
-        var rawMd5 = Convert.ToHexString(MD5.HashData(buffer.Span)).ToLowerInvariant();
+        var rawMd5 = Convert.ToHexStringLower(MD5.HashData(buffer.Span));
         var paddedSize = Crypto.AesEcb.GetPaddedSize(rawSize);
         var fileKeyBytes = RandomNumberGenerator.GetBytes(16);
-        var fileKeyHex = Convert.ToHexString(fileKeyBytes).ToLowerInvariant();
+        var fileKeyHex = Convert.ToHexStringLower(fileKeyBytes);
         var aesKeyBytes = RandomNumberGenerator.GetBytes(16);
-        var aesKeyHex = Convert.ToHexString(aesKeyBytes).ToLowerInvariant();
+        var aesKeyHex = Convert.ToHexStringLower(aesKeyBytes);
 
         var uploadInfo = await api.GetUploadUrlAsync(
             fileKeyHex,

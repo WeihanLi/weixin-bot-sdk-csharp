@@ -43,7 +43,7 @@ internal static class AesEcb
         if (decoded.Length == BlockSize * 2)
         {
             var ascii = Encoding.ASCII.GetString(decoded);
-            if (IsHex(ascii))
+            if (ascii.All(c => Uri.IsHexDigit(c)))
             {
                 return Convert.FromHexString(ascii);
             }
@@ -75,7 +75,6 @@ internal static class AesEcb
         aes.Mode = CipherMode.ECB;
         aes.Padding = PaddingMode.PKCS7;
         aes.Key = key.ToArray();
-        aes.IV = new byte[BlockSize];
         return aes;
     }
 

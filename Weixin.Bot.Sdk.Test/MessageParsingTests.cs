@@ -209,6 +209,35 @@ public sealed class MessageParsingTests
         Assert.Empty(message.TextWithQuote);
     }
 
+    [Fact]
+    public async Task Start_ParsesMessage_WhenWireTypesUseNumbersForStringFields()
+    {
+        var message = await ReceiveSingleMessageAsync("""
+        {
+          "message_id": 987654321,
+          "from_user_id": 10001,
+          "to_user_id": "bot-user",
+          "create_time_ms": 1710000000000,
+          "context_token": 12345,
+          "message_type": 1,
+          "message_state": 2,
+          "item_list": [
+            {
+              "type": 1,
+              "text_item": {
+                "text": 67890
+              }
+            }
+          ]
+        }
+        """);
+
+        Assert.Equal("987654321", message.MessageId);
+        Assert.Equal("10001", message.FromUserId);
+        Assert.Equal("12345", message.ContextToken);
+        Assert.Equal("67890", message.Text);
+    }
+
     private static async Task<WeixinMessage> ReceiveSingleMessageAsync(string messageJson)
     {
         var credentialsPath = TestSupport.CreateCredentialsFile("bot-user");

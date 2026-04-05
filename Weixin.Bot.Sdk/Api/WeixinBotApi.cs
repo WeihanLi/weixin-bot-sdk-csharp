@@ -1,5 +1,7 @@
-using System.Globalization;
+using System.Buffers.Binary;
 using System.Net.Http.Headers;
+using System.Net.Http.Json;
+
 using Weixin.Bot.Sdk.Media;
 using Weixin.Bot.Sdk.Models;
 using Weixin.Bot.Sdk.Models.Wire;
@@ -8,8 +10,8 @@ namespace Weixin.Bot.Sdk.Api;
 
 internal sealed class WeixinBotApi : IDisposable
 {
-    internal const string DefaultBaseUrl = "https://ilinkai.weixin.qq.com";
-    private static readonly TimeSpan DefaultLongPollTimeout = TimeSpan.FromSeconds(35);
+    private const string DefaultBaseUrl = "https://ilinkai.weixin.qq.com";
+    private static readonly TimeSpan DefaultLongPollTimeout = TimeSpan.FromSeconds(60);
     private static readonly TimeSpan DefaultApiTimeout = TimeSpan.FromSeconds(15);
 
     private readonly HttpClient _httpClient;
@@ -29,6 +31,7 @@ internal sealed class WeixinBotApi : IDisposable
         Token = options.Token;
         Version = options.Version;
         _httpClient = options.HttpClient ?? new HttpClient();
+        _httpClient.DefaultRequestHeaders.TryAddWithoutValidation("iLink-App-ClientVersion", "1");
         _ownsHttpClient = options.HttpClient is null;
     }
 
@@ -37,31 +40,22 @@ internal sealed class WeixinBotApi : IDisposable
     internal string? Token { get; set; }
     internal string Version { get; set; }
 
-    internal async Task<QrCodeResponse> GetQrCodeAsync(string botType = "3", CancellationToken cancellationToken = default)
+    private async Task<QrCodeResponse> GetQrCodeAsync(string botType = "3", CancellationToken cancellationToken = default)
     {
         var url = BuildAbsoluteUrl($"ilink/bot/get_bot_qrcode?bot_type={Uri.EscapeDataString(botType)}");
-        using var request = new HttpRequestMessage(HttpMethod.Get, url);
-        using var response = await _httpClient.SendAsync(request, cancellationToken).ConfigureAwait(false);
-        response.EnsureSuccessStatusCode();
-        await using var stream = await response.Content.ReadAsStreamAsync(cancellationToken).ConfigureAwait(false);
-        return await JsonSerializer.DeserializeAsync<QrCodeResponse>(stream, _serializerOptions, cancellationToken).ConfigureAwait(false)
-            ?? throw new InvalidOperationException("QR code response was empty");
+        var qrResponse = await _httpClient.GetFromJsonAsync<QrCodeResponse>(url, _serializerOptions, cancellationToken).ConfigureAwait(false);
+        return qrResponse ?? throw new InvalidOperationException("QR code response was empty");
     }
 
-    internal async Task<QrStatusResponse> PollQrStatusAsync(string qrcode, CancellationToken cancellationToken = default)
+    private async Task<QrStatusResponse> PollQrStatusAsync(string qrcode, CancellationToken cancellationToken = default)
     {
         var url = BuildAbsoluteUrl($"ilink/bot/get_qrcode_status?qrcode={Uri.EscapeDataString(qrcode)}");
-        using var request = new HttpRequestMessage(HttpMethod.Get, url);
-        request.Headers.TryAddWithoutValidation("iLink-App-ClientVersion", "1");
         using var cts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
         cts.CancelAfter(DefaultLongPollTimeout);
         try
         {
-            using var response = await _httpClient.SendAsync(request, cts.Token).ConfigureAwait(false);
-            response.EnsureSuccessStatusCode();
-            await using var stream = await response.Content.ReadAsStreamAsync(cancellationToken).ConfigureAwait(false);
-            return await JsonSerializer.DeserializeAsync<QrStatusResponse>(stream, _serializerOptions, cancellationToken).ConfigureAwait(false)
-                ?? new QrStatusResponse { Status = "wait" };
+            var response = await _httpClient.GetFromJsonAsync<QrStatusResponse>(url, _serializerOptions, cts.Token).ConfigureAwait(false);
+            return response ?? new QrStatusResponse { Status = "wait" };
         }
         catch (OperationCanceledException) when (!cancellationToken.IsCancellationRequested)
         {
@@ -160,7 +154,7 @@ internal sealed class WeixinBotApi : IDisposable
 
     internal async Task<string> SendMessageAsync<TItem>(string toUserId, IEnumerable<TItem> items, string contextToken, CancellationToken cancellationToken = default)
     {
-        var clientId = $"wx-bot-{Convert.ToHexString(RandomNumberGenerator.GetBytes(8)).ToLowerInvariant()}";
+        var clientId = $"wx-bot-{Convert.ToHexStringLower(RandomNumberGenerator.GetBytes(8))}";
         await PostWithoutResponseAsync("ilink/bot/sendmessage", new
         {
             msg = new
@@ -174,7 +168,7 @@ internal sealed class WeixinBotApi : IDisposable
                 context_token = contextToken,
             },
             base_info = BaseInfo(),
-        }, DefaultApiTimeout, cancellationToken).ConfigureAwait(false);
+        }, cancellationToken).ConfigureAwait(false);
         return clientId;
     }
 
@@ -199,7 +193,7 @@ internal sealed class WeixinBotApi : IDisposable
             typing_ticket = typingTicket,
             status = (int)status,
             base_info = BaseInfo(),
-        }, TimeSpan.FromSeconds(10), cancellationToken);
+        }, cancellationToken);
     }
 
     internal Task<UploadUrlResponse> GetUploadUrlAsync(
@@ -242,7 +236,7 @@ internal sealed class WeixinBotApi : IDisposable
         return new Uri(baseUri, endpoint).ToString();
     }
 
-    private Dictionary<string, string> BaseInfo() => new() { ["channel_version"] = Version }; // simple structure
+    private Dictionary<string, string> BaseInfo() => new() { ["channel_version"] = Version };
 
     private async Task<T> PostAsync<T>(string endpoint, object body, TimeSpan timeout, CancellationToken cancellationToken)
     {
@@ -263,7 +257,7 @@ internal sealed class WeixinBotApi : IDisposable
         return await SendAsync<T>(request, timeout, cancellationToken).ConfigureAwait(false);
     }
 
-    private async Task PostWithoutResponseAsync(string endpoint, object body, TimeSpan timeout, CancellationToken cancellationToken)
+    private async Task PostWithoutResponseAsync(string endpoint, object body, CancellationToken cancellationToken)
     {
         if (string.IsNullOrWhiteSpace(Token))
         {
@@ -279,7 +273,18 @@ internal sealed class WeixinBotApi : IDisposable
         request.Headers.TryAddWithoutValidation("AuthorizationType", "ilink_bot_token");
         request.Headers.TryAddWithoutValidation("X-WECHAT-UIN", RandomWechatUin());
         request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", Token);
-        await SendWithoutParsingAsync(request, timeout, cancellationToken).ConfigureAwait(false);
+        
+        try
+        {
+            using var cts =  CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+            cts.CancelAfter(DefaultApiTimeout);
+            using var response = await _httpClient.SendAsync(request, HttpCompletionOption.ResponseHeadersRead, cts.Token).ConfigureAwait(false);
+            response.EnsureSuccessStatusCode();
+        }
+        catch (OperationCanceledException ex) when (!cancellationToken.IsCancellationRequested)
+        {
+            throw new TimeoutException($"API request to {request.RequestUri} timed out", ex);
+        }
     }
 
     private async Task<T> SendAsync<T>(HttpRequestMessage request, TimeSpan timeout, CancellationToken cancellationToken)
@@ -290,28 +295,8 @@ internal sealed class WeixinBotApi : IDisposable
         {
             using var response = await _httpClient.SendAsync(request, HttpCompletionOption.ResponseHeadersRead, cts.Token).ConfigureAwait(false);
             response.EnsureSuccessStatusCode();
-            await using var stream = await response.Content.ReadAsStreamAsync(cancellationToken).ConfigureAwait(false);
-            var result = await JsonSerializer.DeserializeAsync<T>(stream, _serializerOptions, cancellationToken).ConfigureAwait(false);
-            if (result is null)
-            {
-                throw new InvalidOperationException("API response deserialized to null");
-            }
-            return result;
-        }
-        catch (OperationCanceledException ex) when (!cancellationToken.IsCancellationRequested)
-        {
-            throw new TimeoutException($"API request to {request.RequestUri} timed out after {timeout.TotalSeconds:N0}s", ex);
-        }
-    }
-
-    private async Task SendWithoutParsingAsync(HttpRequestMessage request, TimeSpan timeout, CancellationToken cancellationToken)
-    {
-        using var cts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
-        cts.CancelAfter(timeout);
-        try
-        {
-            using var response = await _httpClient.SendAsync(request, HttpCompletionOption.ResponseHeadersRead, cts.Token).ConfigureAwait(false);
-            response.EnsureSuccessStatusCode();
+            var result = await response.Content.ReadFromJsonAsync<T>(_serializerOptions, cancellationToken).ConfigureAwait(false);
+            return result ?? throw new InvalidOperationException("API response deserialized to null");
         }
         catch (OperationCanceledException ex) when (!cancellationToken.IsCancellationRequested)
         {
@@ -321,10 +306,21 @@ internal sealed class WeixinBotApi : IDisposable
 
     private static string RandomWechatUin()
     {
-        Span<byte> random = stackalloc byte[4];
-        RandomNumberGenerator.Fill(random);
-        var value = BitConverter.ToUInt32(random);
-        return Convert.ToBase64String(Encoding.UTF8.GetBytes(value.ToString(CultureInfo.InvariantCulture)));
+        // 1. Generate 4 random bytes
+        Span<byte> buffer = stackalloc byte[4];
+        RandomNumberGenerator.Fill(buffer);
+
+        // 2. Read as UInt32 (big-endian)
+        uint uint32 = BinaryPrimitives.ReadUInt32BigEndian(buffer);
+
+        // 3. Convert to string
+        string str = uint32.ToString();
+
+        // 4. Encode as UTF-8 bytes
+        byte[] utf8Bytes = Encoding.UTF8.GetBytes(str);
+
+        // 5. Convert to Base64
+        return Convert.ToBase64String(utf8Bytes);
     }
 
     public void Dispose()

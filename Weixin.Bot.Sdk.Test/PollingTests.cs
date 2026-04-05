@@ -93,7 +93,7 @@ public sealed class PollingTests
                       "to_user_id": "user-1",
                       "create_time_ms": 1710000000000,
                       "context_token": "ctx-2",
-                      "message_type": 0,
+                      "message_type": 2,
                       "message_state": 2,
                       "item_list": [
                         {

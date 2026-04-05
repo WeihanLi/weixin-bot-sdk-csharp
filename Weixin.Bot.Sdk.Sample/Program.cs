@@ -32,11 +32,11 @@ bot.LoggedIn += (_, args) =>
 bot.Started += (_, _) => Console.WriteLine("Polling started.");
 bot.Stopped += (_, _) => Console.WriteLine("Polling stopped.");
 bot.SessionExpired += (_, code) => Console.WriteLine($"Session expired with errcode {code}.");
-bot.Error += (_, args) => Console.WriteLine($"SDK error: {args.Exception.Message}");
+bot.Error += (_, args) => Console.WriteLine($"SDK error: {args.Exception.Message}, {args.Exception.ToString()}");
 
-bot.MessageReceived += (_, args) =>
+bot.MessageReceived += async (_, args) =>
 {
-    _ = HandleMessageAsync(bot, args.Message, shutdown.Token);
+    await HandleMessageAsync(bot, args.Message, shutdown.Token);
 };
 
 if (!bot.IsLoggedIn)
