@@ -35,6 +35,7 @@ public sealed class WeixinBot : IAsyncDisposable, IDisposable
     private Task? _pollingTask;
     private string _updatesBuffer = string.Empty;
     private BotCredentials? _credentials;
+    private LoginOptions? _loginOptions;
     private bool _disposed;
 
     /// <summary>
@@ -107,7 +108,7 @@ public sealed class WeixinBot : IAsyncDisposable, IDisposable
     public event EventHandler<WeixinMessageEventArgs>? MessageReceived;
 
     /// <summary>
-    /// Occurs when the remote session becomes invalid and polling can no longer continue.
+    /// Occurs when the remote session becomes invalid and the bot starts reauthentication.
     /// </summary>
     public event EventHandler<SessionExpiredEventArgs>? SessionExpired;
 
@@ -442,6 +443,11 @@ public sealed class WeixinBot : IAsyncDisposable, IDisposable
 
     private async Task<LoginResult> LoginCoreAsync(LoginOptions? options, CancellationToken cancellationToken)
     {
+        if (options is not null)
+        {
+            _loginOptions = CloneLoginOptions(options);
+        }
+
         var result = await _api.LoginAsync(options, cancellationToken).ConfigureAwait(false);
         var creds = new BotCredentials
         {
@@ -455,6 +461,16 @@ public sealed class WeixinBot : IAsyncDisposable, IDisposable
         LoggedIn?.Invoke(this, new LoginSucceededEventArgs(result));
         return result;
     }
+
+    private static LoginOptions CloneLoginOptions(LoginOptions options)
+        => new()
+        {
+            OnQrCode = options.OnQrCode,
+            OnStatusChanged = options.OnStatusChanged,
+            BotType = options.BotType,
+            Timeout = options.Timeout,
+            MaxQrRefresh = options.MaxQrRefresh,
+        };
 
     private async Task SendMediaAsync<TMediaItem>(
         string toUserId,
@@ -513,7 +529,12 @@ public sealed class WeixinBot : IAsyncDisposable, IDisposable
                     if (response.ErrorCode is -14 or -13)
                     {
                         SessionExpired?.Invoke(this, new SessionExpiredEventArgs(response.ErrorCode));
-                        _pollingCts?.Cancel();
+                        if (await TryReauthenticateAsync(cancellationToken).ConfigureAwait(false))
+                        {
+                            backoff = InitialBackoff;
+                            continue;
+                        }
+
                         return;
                     }
 
@@ -600,6 +621,32 @@ public sealed class WeixinBot : IAsyncDisposable, IDisposable
         }
 
         throw new InvalidOperationException($"No context token for user {userId}. Wait for a message before replying.");
+    }
+
+    private async Task<bool> TryReauthenticateAsync(CancellationToken cancellationToken)
+    {
+        if (_loginOptions is null)
+        {
+            Error?.Invoke(this, new WeixinBotErrorEventArgs(
+                new InvalidOperationException("Session expired and no login options are available for reauthentication.")));
+            return false;
+        }
+
+        try
+        {
+            await LoginCoreAsync(CloneLoginOptions(_loginOptions), cancellationToken).ConfigureAwait(false);
+            _updatesBuffer = string.Empty;
+            return true;
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            throw;
+        }
+        catch (Exception ex)
+        {
+            Error?.Invoke(this, new WeixinBotErrorEventArgs(ex));
+            return false;
+        }
     }
 
     private bool IsInboundMessage(MessagePayload payload)
