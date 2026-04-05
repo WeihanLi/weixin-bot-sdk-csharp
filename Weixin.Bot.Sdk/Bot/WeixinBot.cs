@@ -159,7 +159,14 @@ public sealed class WeixinBot : IAsyncDisposable, IDisposable
             return;
         }
 
-        await cts.CancelAsync();
+        try
+        {
+            cts.Cancel();
+        }
+        catch (ObjectDisposedException)
+        {
+            // The polling loop may already have completed and disposed the CTS.
+        }
         try
         {
             if (Task.CurrentId != pollingTask.Id)
@@ -211,20 +218,27 @@ public sealed class WeixinBot : IAsyncDisposable, IDisposable
     /// <returns>A task that completes when the image has been sent.</returns>
     public async Task SendImageAsync(string toUserId, ReadOnlyMemory<byte> image, string? caption = null, string? contextToken = null, CancellationToken cancellationToken = default)
     {
-        await SendMediaAsync(toUserId, image, caption, contextToken, UploadMediaType.Image, prepared => new MessageItemPayload
-        {
-            Type = MessageItemType.Image,
-            ImageItem = new ImageItemPayload
+        await SendMediaAsync(
+            toUserId,
+            image,
+            caption,
+            contextToken,
+            UploadMediaType.Image,
+            prepared => new
             {
-                Media = new MediaPayload
+                type = (int)MessageItemType.Image,
+                image_item = new
                 {
-                    EncryptQueryParam = prepared.DownloadEncryptedQueryParam,
-                    AesKey = HexToBase64(prepared.AesKeyHex),
-                    EncryptType = 1,
+                    media = new
+                    {
+                        encrypt_query_param = prepared.DownloadEncryptedQueryParam,
+                        aes_key = HexToBase64(prepared.AesKeyHex),
+                        encrypt_type = 1,
+                    },
+                    mid_size = prepared.FileSizeCiphertext,
                 },
-                MidSize = prepared.FileSizeCiphertext.ToString(CultureInfo.InvariantCulture),
             },
-        }, cancellationToken).ConfigureAwait(false);
+            cancellationToken).ConfigureAwait(false);
     }
 
     /// <summary>
@@ -238,20 +252,27 @@ public sealed class WeixinBot : IAsyncDisposable, IDisposable
     /// <returns>A task that completes when the video has been sent.</returns>
     public async Task SendVideoAsync(string toUserId, ReadOnlyMemory<byte> video, string? caption = null, string? contextToken = null, CancellationToken cancellationToken = default)
     {
-        await SendMediaAsync(toUserId, video, caption, contextToken, UploadMediaType.Video, prepared => new MessageItemPayload
-        {
-            Type = MessageItemType.Video,
-            VideoItem = new VideoItemPayload
+        await SendMediaAsync(
+            toUserId,
+            video,
+            caption,
+            contextToken,
+            UploadMediaType.Video,
+            prepared => new
             {
-                Media = new MediaPayload
+                type = (int)MessageItemType.Video,
+                video_item = new
                 {
-                    EncryptQueryParam = prepared.DownloadEncryptedQueryParam,
-                    AesKey = HexToBase64(prepared.AesKeyHex),
-                    EncryptType = 1,
+                    media = new
+                    {
+                        encrypt_query_param = prepared.DownloadEncryptedQueryParam,
+                        aes_key = HexToBase64(prepared.AesKeyHex),
+                        encrypt_type = 1,
+                    },
+                    video_size = prepared.FileSizeCiphertext,
                 },
-                VideoSize = prepared.FileSizeCiphertext.ToString(CultureInfo.InvariantCulture),
             },
-        }, cancellationToken).ConfigureAwait(false);
+            cancellationToken).ConfigureAwait(false);
     }
 
     /// <summary>
@@ -435,32 +456,29 @@ public sealed class WeixinBot : IAsyncDisposable, IDisposable
         return result;
     }
 
-    private async Task SendMediaAsync(
+    private async Task SendMediaAsync<TMediaItem>(
         string toUserId,
         ReadOnlyMemory<byte> payload,
         string? caption,
         string? contextToken,
         UploadMediaType mediaType,
-        Func<PreparedUpload, MessageItemPayload> itemFactory,
+        Func<PreparedUpload, TMediaItem> itemFactory,
         CancellationToken cancellationToken)
     {
         var token = EnsureContextToken(toUserId, contextToken);
         var prepared = await UploadPreparation.PrepareAsync(_api, payload, toUserId, mediaType, _cdnClient, cancellationToken).ConfigureAwait(false);
-        var items = new List<MessageItemPayload>();
         if (!string.IsNullOrWhiteSpace(caption))
         {
-            items.Add(new MessageItemPayload
+            var captionItem = new MessageItemPayload
             {
                 Type = MessageItemType.Text,
                 TextItem = new TextItemPayload { Text = caption },
-            });
+            };
+            await _api.SendMessageAsync(toUserId, new[] { captionItem }, token, cancellationToken).ConfigureAwait(false);
         }
-        items.Add(itemFactory(prepared));
 
-        foreach (var item in items)
-        {
-            await _api.SendMessageAsync(toUserId, new[] { item }, token, cancellationToken).ConfigureAwait(false);
-        }
+        var mediaItem = itemFactory(prepared);
+        await _api.SendMessageAsync(toUserId, new[] { mediaItem }, token, cancellationToken).ConfigureAwait(false);
     }
 
     private Task<byte[]> DownloadMediaAsync(WeixinMedia? media, string? overrideHexKey, string? cdnBaseUrl, CancellationToken cancellationToken)

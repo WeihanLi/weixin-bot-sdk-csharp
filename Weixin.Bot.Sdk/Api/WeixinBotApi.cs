@@ -158,10 +158,10 @@ internal sealed class WeixinBotApi : IDisposable
         }
     }
 
-    internal async Task<string> SendMessageAsync(string toUserId, IEnumerable<MessageItemPayload> items, string contextToken, CancellationToken cancellationToken = default)
+    internal async Task<string> SendMessageAsync<TItem>(string toUserId, IEnumerable<TItem> items, string contextToken, CancellationToken cancellationToken = default)
     {
         var clientId = $"wx-bot-{Convert.ToHexString(RandomNumberGenerator.GetBytes(8)).ToLowerInvariant()}";
-        await PostAsync<object>("ilink/bot/sendmessage", new
+        await PostWithoutResponseAsync("ilink/bot/sendmessage", new
         {
             msg = new
             {
@@ -193,7 +193,7 @@ internal sealed class WeixinBotApi : IDisposable
 
     internal Task SendTypingAsync(string userId, string typingTicket, TypingStatus status, CancellationToken cancellationToken = default)
     {
-        return PostAsync<object>("ilink/bot/sendtyping", new
+        return PostWithoutResponseAsync("ilink/bot/sendtyping", new
         {
             ilink_user_id = userId,
             typing_ticket = typingTicket,
@@ -263,6 +263,25 @@ internal sealed class WeixinBotApi : IDisposable
         return await SendAsync<T>(request, timeout, cancellationToken).ConfigureAwait(false);
     }
 
+    private async Task PostWithoutResponseAsync(string endpoint, object body, TimeSpan timeout, CancellationToken cancellationToken)
+    {
+        if (string.IsNullOrWhiteSpace(Token))
+        {
+            throw new InvalidOperationException("API token is not set. Authenticate first.");
+        }
+
+        var url = BuildAbsoluteUrl(endpoint);
+        var json = JsonSerializer.Serialize(body, _serializerOptions);
+        using var request = new HttpRequestMessage(HttpMethod.Post, url)
+        {
+            Content = new StringContent(json, Encoding.UTF8, "application/json"),
+        };
+        request.Headers.TryAddWithoutValidation("AuthorizationType", "ilink_bot_token");
+        request.Headers.TryAddWithoutValidation("X-WECHAT-UIN", RandomWechatUin());
+        request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", Token);
+        await SendWithoutParsingAsync(request, timeout, cancellationToken).ConfigureAwait(false);
+    }
+
     private async Task<T> SendAsync<T>(HttpRequestMessage request, TimeSpan timeout, CancellationToken cancellationToken)
     {
         using var cts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
@@ -278,6 +297,21 @@ internal sealed class WeixinBotApi : IDisposable
                 throw new InvalidOperationException("API response deserialized to null");
             }
             return result;
+        }
+        catch (OperationCanceledException ex) when (!cancellationToken.IsCancellationRequested)
+        {
+            throw new TimeoutException($"API request to {request.RequestUri} timed out after {timeout.TotalSeconds:N0}s", ex);
+        }
+    }
+
+    private async Task SendWithoutParsingAsync(HttpRequestMessage request, TimeSpan timeout, CancellationToken cancellationToken)
+    {
+        using var cts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+        cts.CancelAfter(timeout);
+        try
+        {
+            using var response = await _httpClient.SendAsync(request, HttpCompletionOption.ResponseHeadersRead, cts.Token).ConfigureAwait(false);
+            response.EnsureSuccessStatusCode();
         }
         catch (OperationCanceledException ex) when (!cancellationToken.IsCancellationRequested)
         {

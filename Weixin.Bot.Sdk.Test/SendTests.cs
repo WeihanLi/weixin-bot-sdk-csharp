@@ -163,4 +163,51 @@ public sealed class SendTests
 
         await Assert.ThrowsAsync<ArgumentException>(() => bot.SendFileAsync("user-1", new byte[] { 1, 2, 3 }, string.Empty, contextToken: "ctx"));
     }
+
+    [Fact]
+    public async Task SendTextAsync_AllowsEmptySendMessageResponseBody()
+    {
+        var handler = new ScriptedHttpMessageHandler();
+        handler.Enqueue((_, _) => Task.FromResult(new HttpResponseMessage(System.Net.HttpStatusCode.OK)));
+
+        await using var bot = new WeixinBot(new WeixinBotOptions
+        {
+            Token = "bot-token",
+            HttpClient = new HttpClient(handler),
+        });
+
+        var clientId = await bot.SendTextAsync("user-1", "hello", "ctx");
+
+        Assert.StartsWith("wx-bot-", clientId);
+        var sendRequest = Assert.Single(handler.Requests, x => x.Uri?.AbsoluteUri.Contains("/ilink/bot/sendmessage") == true);
+        using var document = JsonDocument.Parse(sendRequest.Body!);
+        Assert.Equal("ctx", document.RootElement.GetProperty("msg").GetProperty("context_token").GetString());
+    }
+
+    [Fact]
+    public async Task SendImageAsync_SerializesMidSizeAsNumber()
+    {
+        var handler = new ScriptedHttpMessageHandler();
+        handler.Enqueue((_, _) => Task.FromResult(TestSupport.Json("""{ "upload_param": "upload-token" }""")));
+        handler.Enqueue((_, _) =>
+        {
+            var response = new HttpResponseMessage(System.Net.HttpStatusCode.OK);
+            response.Headers.TryAddWithoutValidation("x-encrypted-param", "download-token");
+            return Task.FromResult(response);
+        });
+        handler.Enqueue((_, _) => Task.FromResult(TestSupport.Json("""{ "ret": 0 }""")));
+
+        await using var bot = new WeixinBot(new WeixinBotOptions
+        {
+            Token = "bot-token",
+            HttpClient = new HttpClient(handler),
+        });
+
+        await bot.SendImageAsync("user-1", new byte[] { 1, 2, 3 }, contextToken: "ctx");
+
+        var sendRequest = Assert.Single(handler.Requests, x => x.Uri?.AbsoluteUri.Contains("/ilink/bot/sendmessage") == true);
+        using var document = JsonDocument.Parse(sendRequest.Body!);
+        var midSize = document.RootElement.GetProperty("msg").GetProperty("item_list")[0].GetProperty("image_item").GetProperty("mid_size");
+        Assert.Equal(JsonValueKind.Number, midSize.ValueKind);
+    }
 }
