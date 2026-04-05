@@ -1,5 +1,11 @@
 <Solution>
-  <Project Path="Weixin.Bot.Sdk.Sample/Weixin.Bot.Sdk.Sample.csproj" />
-  <Project Path="Weixin.Bot.Sdk/Weixin.Bot.Sdk.csproj" />
-  <Project Path="Weixin.Bot.Sdk.Test/Weixin.Bot.Sdk.Test.csproj" />
+  <Folder Name="/sample/">
+    <Project Path="Weixin.Bot.Sdk.Sample/Weixin.Bot.Sdk.Sample.csproj" />
+  </Folder>
+  <Folder Name="/src/">
+    <Project Path="Weixin.Bot.Sdk/Weixin.Bot.Sdk.csproj" />
+  </Folder>
+  <Folder Name="/test/">
+    <Project Path="Weixin.Bot.Sdk.Test/Weixin.Bot.Sdk.Test.csproj" />
+  </Folder>
 </Solution>

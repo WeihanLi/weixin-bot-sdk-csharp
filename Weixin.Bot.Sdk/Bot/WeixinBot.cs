@@ -159,7 +159,7 @@ public sealed class WeixinBot : IAsyncDisposable, IDisposable
             return;
         }
 
-        cts.Cancel();
+        await cts.CancelAsync();
         try
         {
             if (Task.CurrentId != pollingTask.Id)
