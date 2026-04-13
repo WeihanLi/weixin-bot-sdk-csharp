@@ -125,10 +125,10 @@ internal sealed class WeixinBotApi : IDisposable
     {
         try
         {
-            return await PostAsync<GetUpdatesResponse>("ilink/bot/getupdates", new
+            return await PostAsync<GetUpdatesResponse>("ilink/bot/getupdates", new GetUpdatesRequest
             {
-                get_updates_buf = updatesBuffer ?? string.Empty,
-                base_info = BaseInfo(),
+                GetUpdatesBuffer = updatesBuffer ?? string.Empty,
+                BaseInfo = BaseInfo(),
             }, DefaultLongPollTimeout, cancellationToken).ConfigureAwait(false);
         }
         catch (TimeoutException)
@@ -151,22 +151,21 @@ internal sealed class WeixinBotApi : IDisposable
         }
     }
 
-    internal async Task<string> SendMessageAsync<TItem>(string toUserId, IEnumerable<TItem> items, string contextToken, CancellationToken cancellationToken = default)
+    internal async Task<string> SendMessageAsync(string toUserId, IEnumerable<MessageItemPayload> items, string contextToken, CancellationToken cancellationToken = default)
     {
         var clientId = $"wx-bot-{Convert.ToHexStringLower(RandomNumberGenerator.GetBytes(8))}";
-        await PostWithoutResponseAsync("ilink/bot/sendmessage", new
+        await PostWithoutResponseAsync("ilink/bot/sendmessage", new SendMessageRequest
         {
-            msg = new
+            Message = new OutboundMessagePayload
             {
-                from_user_id = string.Empty,
-                to_user_id = toUserId,
-                client_id = clientId,
-                message_type = (int)MessageType.Bot,
-                message_state = (int)MessageState.Finish,
-                item_list = items,
-                context_token = contextToken,
+                ToUserId = toUserId,
+                ClientId = clientId,
+                MessageType = (int)MessageType.Bot,
+                MessageState = (int)MessageState.Finish,
+                Items = items,
+                ContextToken = contextToken,
             },
-            base_info = BaseInfo(),
+            BaseInfo = BaseInfo(),
         }, cancellationToken).ConfigureAwait(false);
         return clientId;
     }
@@ -186,12 +185,12 @@ internal sealed class WeixinBotApi : IDisposable
 
     internal Task SendTypingAsync(string userId, string typingTicket, TypingStatus status, CancellationToken cancellationToken = default)
     {
-        return PostWithoutResponseAsync("ilink/bot/sendtyping", new
+        return PostWithoutResponseAsync("ilink/bot/sendtyping", new SendTypingRequest
         {
-            ilink_user_id = userId,
-            typing_ticket = typingTicket,
-            status = (int)status,
-            base_info = BaseInfo(),
+            UserId = userId,
+            TypingTicket = typingTicket,
+            Status = (int)status,
+            BaseInfo = BaseInfo(),
         }, cancellationToken);
     }
 
@@ -205,27 +204,26 @@ internal sealed class WeixinBotApi : IDisposable
         string aesKeyHex,
         CancellationToken cancellationToken = default)
     {
-        return PostAsync<UploadUrlResponse>("ilink/bot/getuploadurl", new
+        return PostAsync<UploadUrlResponse>("ilink/bot/getuploadurl", new GetUploadUrlRequest
         {
-            filekey = fileKey,
-            media_type = (int)mediaType,
-            to_user_id = toUserId,
-            rawsize = rawSize,
-            rawfilemd5 = rawFileMd5,
-            filesize = paddedFileSize,
-            no_need_thumb = true,
-            aeskey = aesKeyHex,
-            base_info = BaseInfo(),
+            FileKey = fileKey,
+            MediaType = (int)mediaType,
+            ToUserId = toUserId,
+            RawSize = rawSize,
+            RawFileMd5 = rawFileMd5,
+            FileSize = paddedFileSize,
+            AesKey = aesKeyHex,
+            BaseInfo = BaseInfo(),
         }, DefaultApiTimeout, cancellationToken);
     }
 
     internal Task<ConfigResponse> GetConfigAsync(string userId, string contextToken, CancellationToken cancellationToken = default)
     {
-        return PostAsync<ConfigResponse>("ilink/bot/getconfig", new
+        return PostAsync<ConfigResponse>("ilink/bot/getconfig", new GetConfigRequest
         {
-            ilink_user_id = userId,
-            context_token = contextToken,
-            base_info = BaseInfo(),
+            UserId = userId,
+            ContextToken = contextToken,
+            BaseInfo = BaseInfo(),
         }, TimeSpan.FromSeconds(10), cancellationToken);
     }
 
@@ -235,7 +233,7 @@ internal sealed class WeixinBotApi : IDisposable
         return new Uri(baseUri, endpoint).ToString();
     }
 
-    private Dictionary<string, string> BaseInfo() => new() { ["channel_version"] = Version };
+    private BaseInfoPayload BaseInfo() => new() { ChannelVersion = Version };
 
     private async Task<T> PostAsync<T>(string endpoint, object body, TimeSpan timeout, CancellationToken cancellationToken)
     {
@@ -305,21 +303,10 @@ internal sealed class WeixinBotApi : IDisposable
 
     private static string RandomWechatUin()
     {
-        // 1. Generate 4 random bytes
         Span<byte> buffer = stackalloc byte[4];
         RandomNumberGenerator.Fill(buffer);
-
-        // 2. Read as UInt32 (big-endian)
-        uint uint32 = BinaryPrimitives.ReadUInt32BigEndian(buffer);
-
-        // 3. Convert to string
-        string str = uint32.ToString();
-
-        // 4. Encode as UTF-8 bytes
-        byte[] utf8Bytes = Encoding.UTF8.GetBytes(str);
-
-        // 5. Convert to Base64
-        return Convert.ToBase64String(utf8Bytes);
+        var uint32 = BinaryPrimitives.ReadUInt32BigEndian(buffer);
+        return Convert.ToBase64String(Encoding.UTF8.GetBytes(uint32.ToString()));
     }
 
     public void Dispose()

@@ -222,18 +222,18 @@ public sealed class WeixinBot : IAsyncDisposable, IDisposable
             caption,
             contextToken,
             UploadMediaType.Image,
-            prepared => new
+            prepared => new MessageItemPayload
             {
-                type = (int)MessageItemType.Image,
-                image_item = new
+                Type = MessageItemType.Image,
+                ImageItem = new ImageItemPayload
                 {
-                    media = new
+                    Media = new MediaPayload
                     {
-                        encrypt_query_param = prepared.DownloadEncryptedQueryParam,
-                        aes_key = HexToBase64(prepared.AesKeyHex),
-                        encrypt_type = 1,
+                        EncryptQueryParam = prepared.DownloadEncryptedQueryParam,
+                        AesKey = HexToBase64(prepared.AesKeyHex),
+                        EncryptType = 1,
                     },
-                    mid_size = prepared.FileSizeCiphertext,
+                    MidSize = prepared.FileSizeCiphertext,
                 },
             },
             cancellationToken).ConfigureAwait(false);
@@ -256,18 +256,18 @@ public sealed class WeixinBot : IAsyncDisposable, IDisposable
             caption,
             contextToken,
             UploadMediaType.Video,
-            prepared => new
+            prepared => new MessageItemPayload
             {
-                type = (int)MessageItemType.Video,
-                video_item = new
+                Type = MessageItemType.Video,
+                VideoItem = new VideoItemPayload
                 {
-                    media = new
+                    Media = new MediaPayload
                     {
-                        encrypt_query_param = prepared.DownloadEncryptedQueryParam,
-                        aes_key = HexToBase64(prepared.AesKeyHex),
-                        encrypt_type = 1,
+                        EncryptQueryParam = prepared.DownloadEncryptedQueryParam,
+                        AesKey = HexToBase64(prepared.AesKeyHex),
+                        EncryptType = 1,
                     },
-                    video_size = prepared.FileSizeCiphertext,
+                    VideoSize = prepared.FileSizeCiphertext,
                 },
             },
             cancellationToken).ConfigureAwait(false);
@@ -462,13 +462,13 @@ public sealed class WeixinBot : IAsyncDisposable, IDisposable
             MaxQrRefresh = options.MaxQrRefresh,
         };
 
-    private async Task SendMediaAsync<TMediaItem>(
+    private async Task SendMediaAsync(
         string toUserId,
         ReadOnlyMemory<byte> payload,
         string? caption,
         string? contextToken,
         UploadMediaType mediaType,
-        Func<PreparedUpload, TMediaItem> itemFactory,
+        Func<PreparedUpload, MessageItemPayload> itemFactory,
         CancellationToken cancellationToken)
     {
         var token = EnsureContextToken(toUserId, contextToken);
@@ -767,7 +767,7 @@ public sealed class WeixinBot : IAsyncDisposable, IDisposable
     }
 
     private static WeixinImage ToWeixinImage(ImageItemPayload image)
-        => new(ToWeixinMedia(image.Media), image.MidSize, image.AesKey);
+        => new(ToWeixinMedia(image.Media), image.MidSize?.ToString(CultureInfo.InvariantCulture), image.AesKey);
 
     private static WeixinVoice ToWeixinVoice(VoiceItemPayload voice)
         => new(ToWeixinMedia(voice.Media), voice.EncodeType, voice.SampleRate, voice.BitsPerSample, voice.Playtime, voice.Text);
@@ -776,7 +776,7 @@ public sealed class WeixinBot : IAsyncDisposable, IDisposable
         => new(ToWeixinMedia(file.Media), file.FileName, file.Length);
 
     private static WeixinVideo ToWeixinVideo(VideoItemPayload video)
-        => new(ToWeixinMedia(video.Media), video.VideoSize);
+        => new(ToWeixinMedia(video.Media), video.VideoSize?.ToString(CultureInfo.InvariantCulture));
 
     private static WeixinMedia ToWeixinMedia(MediaPayload? media)
     {

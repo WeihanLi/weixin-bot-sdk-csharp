@@ -39,7 +39,7 @@ internal sealed class TextItemPayload
 internal sealed class ImageItemPayload
 {
     [JsonPropertyName("media")] public MediaPayload? Media { get; set; }
-    [JsonPropertyName("mid_size"), JsonConverter(typeof(FlexibleStringJsonConverter))] public string? MidSize { get; set; }
+    [JsonPropertyName("mid_size")] public int? MidSize { get; set; }
     [JsonPropertyName("aeskey"), JsonConverter(typeof(FlexibleStringJsonConverter))] public string? AesKey { get; set; }
 }
 
@@ -63,7 +63,7 @@ internal sealed class FileItemPayload
 internal sealed class VideoItemPayload
 {
     [JsonPropertyName("media")] public MediaPayload? Media { get; set; }
-    [JsonPropertyName("video_size"), JsonConverter(typeof(FlexibleStringJsonConverter))] public string? VideoSize { get; set; }
+    [JsonPropertyName("video_size")] public int? VideoSize { get; set; }
 }
 
 internal sealed class MediaPayload
