@@ -21,7 +21,7 @@ This repository contains:
 
 ## Requirements
 
-- .NET 8
+- .NET 10
 
 ## Project Structure
 
