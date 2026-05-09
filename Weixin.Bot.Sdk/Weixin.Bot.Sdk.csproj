@@ -2,9 +2,6 @@
 
   <PropertyGroup>
     <TargetFramework>net10.0</TargetFramework>
-    <Nullable>enable</Nullable>
-    <ImplicitUsings>enable</ImplicitUsings>
-    <LangVersion>latest</LangVersion>
     <GenerateDocumentationFile>true</GenerateDocumentationFile>
     <AssemblyTitle>Weixin Bot SDK</AssemblyTitle>
     <Version>0.1.0</Version>
@@ -12,6 +9,12 @@
     <Authors>Weixin Bot SDK Contributors</Authors>
     <Description>Modern .NET SDK for the WeChat iLink Bot protocol.</Description>
     <RepositoryUrl>https://github.com/WeihanLi/weixin-bot-sdk-csharp</RepositoryUrl>
+    <RepositoryType>git</RepositoryType>
+    <PublishRepositoryUrl>true</PublishRepositoryUrl>
+    <EmbedUntrackedSources>true</EmbedUntrackedSources>
+    <IncludeSymbols>true</IncludeSymbols>
+    <SymbolPackageFormat>snupkg</SymbolPackageFormat>
+    <PackageTags>weixin;wechat;bot;sdk;ilink</PackageTags>
     <PackageReadmeFile>README.md</PackageReadmeFile>
   </PropertyGroup>
 

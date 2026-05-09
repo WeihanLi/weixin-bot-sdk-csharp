@@ -9,6 +9,11 @@ namespace Weixin.Bot.Sdk.Api;
 
 internal sealed class WeixinBotApi : IDisposable
 {
+    private const string DefaultBotType = "3";
+    private const string QrStatusWait = "wait";
+    private const string QrStatusConfirmed = "confirmed";
+    private const string QrStatusExpired = "expired";
+    private static readonly TimeSpan DefaultQrPollInterval = TimeSpan.FromSeconds(1);
     private const string DefaultBaseUrl = "https://ilinkai.weixin.qq.com";
     private static readonly TimeSpan DefaultLongPollTimeout = TimeSpan.FromSeconds(60);
     private static readonly TimeSpan DefaultApiTimeout = TimeSpan.FromSeconds(15);
@@ -39,7 +44,7 @@ internal sealed class WeixinBotApi : IDisposable
     internal string? Token { get; set; }
     internal string Version { get; set; }
 
-    private async Task<QrCodeResponse> GetQrCodeAsync(string botType = "3", CancellationToken cancellationToken = default)
+    private async Task<QrCodeResponse> GetQrCodeAsync(string botType = DefaultBotType, CancellationToken cancellationToken = default)
     {
         var url = BuildAbsoluteUrl($"ilink/bot/get_bot_qrcode?bot_type={Uri.EscapeDataString(botType)}");
         var qrResponse = await _httpClient.GetFromJsonAsync<QrCodeResponse>(url, _serializerOptions, cancellationToken).ConfigureAwait(false);
@@ -54,11 +59,11 @@ internal sealed class WeixinBotApi : IDisposable
         try
         {
             var response = await _httpClient.GetFromJsonAsync<QrStatusResponse>(url, _serializerOptions, cts.Token).ConfigureAwait(false);
-            return response ?? new QrStatusResponse { Status = "wait" };
+            return response ?? new QrStatusResponse { Status = QrStatusWait };
         }
         catch (OperationCanceledException) when (!cancellationToken.IsCancellationRequested)
         {
-            return new QrStatusResponse { Status = "wait" };
+            return new QrStatusResponse { Status = QrStatusWait };
         }
     }
 
@@ -90,14 +95,14 @@ internal sealed class WeixinBotApi : IDisposable
 
             switch (status.Status)
             {
-                case "confirmed":
+                case QrStatusConfirmed:
                     Token = status.BotToken ?? throw new InvalidOperationException("Login succeeded but bot_token missing");
                     if (!string.IsNullOrWhiteSpace(status.BaseUrl))
                     {
                         BaseUrl = status.BaseUrl!;
                     }
                     return new LoginResult(Token, status.BotId, status.BaseUrl, status.UserId);
-                case "expired":
+                case QrStatusExpired:
                     refreshCount++;
                     if (refreshCount >= options.MaxQrRefresh)
                     {
@@ -109,13 +114,13 @@ internal sealed class WeixinBotApi : IDisposable
                         await onQrRefresh(qr.QrCodeImageContent!);
                     }
                     break;
-                case "wait":
+                case QrStatusWait:
                     break;
                 default:
                     break;
             }
 
-            await Task.Delay(TimeSpan.FromSeconds(1), cancellationToken).ConfigureAwait(false);
+            await Task.Delay(DefaultQrPollInterval, cancellationToken).ConfigureAwait(false);
         }
 
         throw new TimeoutException("Login timed out before confirmation");

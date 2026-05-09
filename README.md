@@ -23,6 +23,28 @@ This repository contains:
 
 - .NET 10
 
+## Development Workflow
+
+Restore, build, and test with strict warning gates enabled by default:
+
+```powershell
+dotnet restore .\weixin-bot-sdk-csharp.slnx
+dotnet build .\weixin-bot-sdk-csharp.slnx -c Release --no-restore
+dotnet test .\Weixin.Bot.Sdk.Test\Weixin.Bot.Sdk.Test.csproj -c Release --no-build
+```
+
+Generate test result and coverage artifacts:
+
+```powershell
+dotnet test .\Weixin.Bot.Sdk.Test\Weixin.Bot.Sdk.Test.csproj -c Release --no-build --logger "trx;LogFileName=test-results.trx" --results-directory .\artifacts\TestResults --collect:"XPlat Code Coverage"
+```
+
+Pack the SDK:
+
+```powershell
+dotnet pack .\Weixin.Bot.Sdk\Weixin.Bot.Sdk.csproj -c Release --no-build -o .\artifacts\packages
+```
+
 ## Project Structure
 
 ```text

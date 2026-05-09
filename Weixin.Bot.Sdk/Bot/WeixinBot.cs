@@ -11,6 +11,8 @@ namespace Weixin.Bot.Sdk.Bot;
 public sealed class WeixinBot : IAsyncDisposable, IDisposable
 {
     private const int ContextCacheLimit = 1000;
+    private const int SessionExpiredErrorCode = -14;
+    private const int SessionInvalidErrorCode = -13;
     private static readonly TimeSpan InitialBackoff = TimeSpan.FromSeconds(3);
     private static readonly TimeSpan MaxBackoff = TimeSpan.FromSeconds(60);
 
@@ -516,7 +518,7 @@ public sealed class WeixinBot : IAsyncDisposable, IDisposable
                         _updatesBuffer = response.GetUpdatesBuffer!;
                     }
 
-                    if (response.ErrorCode is -14 or -13)
+                    if (response.ErrorCode is SessionExpiredErrorCode or SessionInvalidErrorCode)
                     {
                         SessionExpired?.Invoke(this, new SessionExpiredEventArgs(response.ErrorCode));
                         if (await TryReauthenticateAsync(cancellationToken).ConfigureAwait(false))
@@ -686,7 +688,7 @@ public sealed class WeixinBot : IAsyncDisposable, IDisposable
                 textWithQuote = body;
                 if (item.ReferencedMessage is { } reference)
                 {
-                    var parts = new List<string>();
+                    List<string> parts = [];
                     if (!string.IsNullOrWhiteSpace(reference.Title))
                     {
                         parts.Add(reference.Title!);
