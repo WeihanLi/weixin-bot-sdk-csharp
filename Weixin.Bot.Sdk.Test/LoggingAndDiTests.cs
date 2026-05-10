@@ -13,14 +13,14 @@ public sealed class LoggingAndDiTests
     [Fact]
     public void Constructor_WithNoLoggerFactory_DoesNotThrow()
     {
-        using WeixinBot bot = new(new WeixinBotOptions());
+        using WeixinBot bot = new(null, new WeixinBotOptions());
         Assert.NotNull(bot);
     }
 
     [Fact]
     public void Constructor_WithNullLoggerFactory_DoesNotThrow()
     {
-        using WeixinBot bot = new(new WeixinBotOptions { LoggerFactory = null });
+        using WeixinBot bot = new(null, new WeixinBotOptions { LoggerFactory = null });
         Assert.NotNull(bot);
     }
 
@@ -28,7 +28,7 @@ public sealed class LoggingAndDiTests
     public void Constructor_WithNullLoggerFactory_FallsBackToNullLogger()
     {
         // NullLoggerFactory.Instance is the fallback — constructing without logger must not throw.
-        using WeixinBot bot = new(new WeixinBotOptions { LoggerFactory = NullLoggerFactory.Instance });
+        using WeixinBot bot = new(null, new WeixinBotOptions { LoggerFactory = NullLoggerFactory.Instance });
         Assert.NotNull(bot);
     }
 

@@ -42,11 +42,10 @@ public sealed class PollingTests
 
             var received = new TaskCompletionSource<WeixinMessage>(TaskCreationOptions.RunContinuationsAsynchronously);
             using var httpClient = new HttpClient(handler);
-            await using var bot = new WeixinBot(new WeixinBotOptions
+            await using var bot = new WeixinBot(new DelegateMessageHandler((message, _) => { received.TrySetResult(message); return Task.CompletedTask; }), new WeixinBotOptions
             {
                 CredentialsPath = credentialsPath,
                 HttpClient = httpClient,
-                MessageHandler = new DelegateMessageHandler((message, _) => { received.TrySetResult(message); return Task.CompletedTask; }),
             });
 
             using var cts = new CancellationTokenSource();
@@ -108,11 +107,10 @@ public sealed class PollingTests
 
             var received = false;
             using var httpClient = new HttpClient(handler);
-            await using var bot = new WeixinBot(new WeixinBotOptions
+            await using var bot = new WeixinBot(new DelegateMessageHandler((_, _) => { received = true; return Task.CompletedTask; }), new WeixinBotOptions
             {
                 CredentialsPath = credentialsPath,
                 HttpClient = httpClient,
-                MessageHandler = new DelegateMessageHandler((_, _) => { received = true; return Task.CompletedTask; }),
             });
 
             using var cts = new CancellationTokenSource(TimeSpan.FromMilliseconds(250));
@@ -162,11 +160,10 @@ public sealed class PollingTests
 
         var received = new TaskCompletionSource<WeixinMessage>(TaskCreationOptions.RunContinuationsAsynchronously);
         using var httpClient = new HttpClient(handler);
-        await using var bot = new WeixinBot(new WeixinBotOptions
+        await using var bot = new WeixinBot(new DelegateMessageHandler((message, _) => { received.TrySetResult(message); return Task.CompletedTask; }), new WeixinBotOptions
         {
             Token = "bot-token",
             HttpClient = httpClient,
-            MessageHandler = new DelegateMessageHandler((message, _) => { received.TrySetResult(message); return Task.CompletedTask; }),
         });
 
         using var cts = new CancellationTokenSource();

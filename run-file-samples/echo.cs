@@ -32,10 +32,9 @@ var weixinBotOptions = new WeixinBotOptions
     OnStopped = (_, _) => Console.WriteLine("Polling stopped."),
     OnSessionExpired = (_, code) => Console.WriteLine($"Session expired with errcode {code}."),
     OnError = (_, args) => Console.WriteLine($"SDK error: {args.Exception.Message}, {args.Exception}"),
-    MessageHandler = echoHandler,
 };
 
-await using var bot = new WeixinBot(weixinBotOptions);
+await using var bot = new WeixinBot(echoHandler, weixinBotOptions);
 echoHandler.Bot = bot;
 
 if (!bot.IsLoggedIn)

@@ -75,11 +75,6 @@ public sealed class WeixinBotOptions
     public EventHandler<CredentialsEventArgs>? OnCredentialsLoaded { get; set; }
 
     /// <summary>
-    /// Gets a handler invoked when a new inbound user message is received and parsed.
-    /// </summary>
-    public IWeixinMessageHandler? MessageHandler { get; set; }
-
-    /// <summary>
     /// Gets a handler invoked when the remote session becomes invalid and the bot starts reauthentication.
     /// </summary>
     public EventHandler<SessionExpiredEventArgs>? OnSessionExpired { get; set; }

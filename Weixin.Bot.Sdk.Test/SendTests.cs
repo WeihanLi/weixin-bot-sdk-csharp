@@ -44,11 +44,10 @@ public sealed class SendTests
 
             var received = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
             using var httpClient = new HttpClient(handler);
-            await using var bot = new WeixinBot(new WeixinBotOptions
+            await using var bot = new WeixinBot(new DelegateMessageHandler((_, _) => { received.TrySetResult(true); return Task.CompletedTask; }), new WeixinBotOptions
             {
                 CredentialsPath = credentialsPath,
                 HttpClient = httpClient,
-                MessageHandler = new DelegateMessageHandler((_, _) => { received.TrySetResult(true); return Task.CompletedTask; }),
             });
 
             using var cts = new CancellationTokenSource();
@@ -110,11 +109,10 @@ public sealed class SendTests
 
             var received = new TaskCompletionSource<WeixinMessage>(TaskCreationOptions.RunContinuationsAsynchronously);
             using var httpClient = new HttpClient(handler);
-            await using var bot = new WeixinBot(new WeixinBotOptions
+            await using var bot = new WeixinBot(new DelegateMessageHandler((message, _) => { received.TrySetResult(message); return Task.CompletedTask; }), new WeixinBotOptions
             {
                 CredentialsPath = credentialsPath,
                 HttpClient = httpClient,
-                MessageHandler = new DelegateMessageHandler((message, _) => { received.TrySetResult(message); return Task.CompletedTask; }),
             });
 
             using var cts = new CancellationTokenSource();
@@ -140,7 +138,7 @@ public sealed class SendTests
     [Fact]
     public async Task SendTextAsync_WithoutContextToken_Throws()
     {
-        await using var bot = new WeixinBot(new WeixinBotOptions
+        await using var bot = new WeixinBot(null, new WeixinBotOptions
         {
             Token = "bot-token",
             HttpClient = new HttpClient(new ScriptedHttpMessageHandler()),
@@ -153,7 +151,7 @@ public sealed class SendTests
     [Fact]
     public async Task SendFileAsync_WithBlankFileName_Throws()
     {
-        await using var bot = new WeixinBot(new WeixinBotOptions
+        await using var bot = new WeixinBot(null, new WeixinBotOptions
         {
             Token = "bot-token",
             HttpClient = new HttpClient(new ScriptedHttpMessageHandler()),
@@ -168,7 +166,7 @@ public sealed class SendTests
         var handler = new ScriptedHttpMessageHandler();
         handler.Enqueue((_, _) => Task.FromResult(new HttpResponseMessage(System.Net.HttpStatusCode.OK)));
 
-        await using var bot = new WeixinBot(new WeixinBotOptions
+        await using var bot = new WeixinBot(null, new WeixinBotOptions
         {
             Token = "bot-token",
             HttpClient = new HttpClient(handler),
@@ -195,7 +193,7 @@ public sealed class SendTests
         });
         handler.Enqueue((_, _) => Task.FromResult(TestSupport.Json("""{ "ret": 0 }""")));
 
-        await using var bot = new WeixinBot(new WeixinBotOptions
+        await using var bot = new WeixinBot(null, new WeixinBotOptions
         {
             Token = "bot-token",
             HttpClient = new HttpClient(handler),

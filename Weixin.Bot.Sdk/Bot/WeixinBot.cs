@@ -44,8 +44,9 @@ public sealed class WeixinBot : IWeixinBot, IAsyncDisposable, IDisposable
     /// <summary>
     /// Initializes a new bot instance.
     /// </summary>
+    /// <param name="messageHandler">The handler invoked for each inbound message.</param>
     /// <param name="options">Bot configuration.</param>
-    public WeixinBot(WeixinBotOptions options)
+    public WeixinBot(IWeixinMessageHandler? messageHandler, WeixinBotOptions options)
     {
         ArgumentNullException.ThrowIfNull(options);
         _logger = options.LoggerFactory?.CreateLogger<WeixinBot>() ?? NullLogger<WeixinBot>.Instance;
@@ -53,7 +54,7 @@ public sealed class WeixinBot : IWeixinBot, IAsyncDisposable, IDisposable
         _onStopped = options.OnStopped;
         _onLoggedIn = options.OnLoggedIn;
         _onCredentialsLoaded = options.OnCredentialsLoaded;
-        _messageHandler = options.MessageHandler;
+        _messageHandler = messageHandler;
         _onSessionExpired = options.OnSessionExpired;
         _onError = options.OnError;
         _credentialStore = options.CredentialStore

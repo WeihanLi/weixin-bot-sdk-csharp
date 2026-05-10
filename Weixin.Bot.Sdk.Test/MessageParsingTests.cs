@@ -257,11 +257,10 @@ public sealed class MessageParsingTests
 
             var received = new TaskCompletionSource<WeixinMessage>(TaskCreationOptions.RunContinuationsAsynchronously);
             using var httpClient = new HttpClient(handler);
-            await using var bot = new WeixinBot(new WeixinBotOptions
+            await using var bot = new WeixinBot(new DelegateMessageHandler((message, _) => { received.TrySetResult(message); return Task.CompletedTask; }), new WeixinBotOptions
             {
                 CredentialsPath = credentialsPath,
                 HttpClient = httpClient,
-                MessageHandler = new DelegateMessageHandler((message, _) => { received.TrySetResult(message); return Task.CompletedTask; }),
             });
 
             using var cts = new CancellationTokenSource();

@@ -12,7 +12,7 @@ public sealed class LifecycleTests
         var credentialsPath = TestSupport.CreateCredentialsFile("bot-user");
         try
         {
-            using var bot = new WeixinBot(new WeixinBotOptions
+            using var bot = new WeixinBot(null, new WeixinBotOptions
             {
                 CredentialsPath = credentialsPath,
             });
@@ -39,7 +39,7 @@ public sealed class LifecycleTests
             SavedAt = DateTimeOffset.UtcNow,
         });
 
-        using var bot = new WeixinBot(new WeixinBotOptions
+        using var bot = new WeixinBot(null, new WeixinBotOptions
         {
             CredentialStore = credentialStore,
         });
@@ -72,7 +72,7 @@ public sealed class LifecycleTests
 
         InMemoryCredentialStore credentialStore = new(null);
         using var httpClient = new HttpClient(handler);
-        await using var bot = new WeixinBot(new WeixinBotOptions
+        await using var bot = new WeixinBot(null, new WeixinBotOptions
         {
             CredentialStore = credentialStore,
             HttpClient = httpClient,
@@ -101,13 +101,12 @@ public sealed class LifecycleTests
             var stopped = new TaskCompletionSource<DateTimeOffset>(TaskCreationOptions.RunContinuationsAsynchronously);
             var handler = new ScriptedHttpMessageHandler();
             using var httpClient = new HttpClient(handler);
-            await using var bot = new WeixinBot(new WeixinBotOptions
+            await using var bot = new WeixinBot(new DelegateMessageHandler((_, _) => Task.CompletedTask), new WeixinBotOptions
             {
                 CredentialsPath = credentialsPath,
                 HttpClient = httpClient,
                 OnStarted = (_, args) => started.TrySetResult(args.OccurredAt),
                 OnStopped = (_, args) => stopped.TrySetResult(args.OccurredAt),
-                MessageHandler = new DelegateMessageHandler((_, _) => Task.CompletedTask),
             });
 
             using var cts = new CancellationTokenSource();
@@ -129,7 +128,7 @@ public sealed class LifecycleTests
     [Fact]
     public async Task Start_WithoutLogin_ThrowsInvalidOperationException()
     {
-        using var bot = new WeixinBot(new WeixinBotOptions());
+        using var bot = new WeixinBot(null, new WeixinBotOptions());
         var exception = await Assert.ThrowsAsync<InvalidOperationException>(() => bot.StartAsync());
         Assert.Contains("Not logged in", exception.Message);
     }
@@ -140,7 +139,7 @@ public sealed class LifecycleTests
         var credentialsPath = TestSupport.CreateCredentialsFile("bot-user");
         try
         {
-            using var bot = new WeixinBot(new WeixinBotOptions { CredentialsPath = credentialsPath });
+            using var bot = new WeixinBot(null, new WeixinBotOptions { CredentialsPath = credentialsPath });
             var exception = await Assert.ThrowsAsync<InvalidOperationException>(() => bot.StartAsync());
             Assert.Contains("message handler", exception.Message);
         }
@@ -169,13 +168,12 @@ public sealed class LifecycleTests
             var expired = new TaskCompletionSource<int>(TaskCreationOptions.RunContinuationsAsynchronously);
             var stopped = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
             using var httpClient = new HttpClient(handler);
-            await using var bot = new WeixinBot(new WeixinBotOptions
+            await using var bot = new WeixinBot(new DelegateMessageHandler((_, _) => Task.CompletedTask), new WeixinBotOptions
             {
                 CredentialsPath = credentialsPath,
                 HttpClient = httpClient,
                 OnSessionExpired = (_, args) => expired.TrySetResult(args.ErrorCode),
                 OnStopped = (_, _) => stopped.TrySetResult(true),
-                MessageHandler = new DelegateMessageHandler((_, _) => Task.CompletedTask),
             });
 
             await bot.StartAsync();
@@ -263,12 +261,11 @@ public sealed class LifecycleTests
         var received = new TaskCompletionSource<WeixinMessage>(TaskCreationOptions.RunContinuationsAsynchronously);
         var loginCount = 0;
         using var httpClient = new HttpClient(handler);
-        await using var bot = new WeixinBot(new WeixinBotOptions
+        await using var bot = new WeixinBot(new DelegateMessageHandler((message, _) => { received.TrySetResult(message); return Task.CompletedTask; }), new WeixinBotOptions
         {
             HttpClient = httpClient,
             OnSessionExpired = (_, args) => expired.TrySetResult(args.ErrorCode),
             OnLoggedIn = (_, _) => Interlocked.Increment(ref loginCount),
-            MessageHandler = new DelegateMessageHandler((message, _) => { received.TrySetResult(message); return Task.CompletedTask; }),
         });
 
         await bot.LoginAsync(new LoginOptions
@@ -301,12 +298,11 @@ public sealed class LifecycleTests
 
             var error = new TaskCompletionSource<Exception>(TaskCreationOptions.RunContinuationsAsynchronously);
             using var httpClient = new HttpClient(handler);
-            await using var bot = new WeixinBot(new WeixinBotOptions
+            await using var bot = new WeixinBot(new DelegateMessageHandler((_, _) => Task.CompletedTask), new WeixinBotOptions
             {
                 CredentialsPath = credentialsPath,
                 HttpClient = httpClient,
                 OnError = (_, args) => error.TrySetResult(args.Exception),
-                MessageHandler = new DelegateMessageHandler((_, _) => Task.CompletedTask),
             });
 
             using var cts = new CancellationTokenSource();

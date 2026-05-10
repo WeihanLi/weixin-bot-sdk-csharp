@@ -15,7 +15,7 @@ Console.CancelKeyPress += (_, args) =>
 };
 
 var echoHandler = new EchoMessageHandler();
-await using var bot = new WeixinBot(new WeixinBotOptions
+await using var bot = new WeixinBot(echoHandler, new WeixinBotOptions
 {
     CredentialsPath = credentialsPath,
     OnCredentialsLoaded = (_, args) =>
@@ -30,7 +30,6 @@ await using var bot = new WeixinBot(new WeixinBotOptions
     OnStopped = (_, _) => Console.WriteLine("Polling stopped."),
     OnSessionExpired = (_, code) => Console.WriteLine($"Session expired with errcode {code}."),
     OnError = (_, args) => Console.WriteLine($"SDK error: {args.Exception.Message}, {args.Exception}"),
-    MessageHandler = echoHandler,
 });
 echoHandler.Bot = bot;
 
