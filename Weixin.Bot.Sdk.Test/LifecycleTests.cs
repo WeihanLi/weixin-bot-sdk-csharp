@@ -28,6 +28,70 @@ public sealed class LifecycleTests
     }
 
     [Fact]
+    public void Constructor_LoadsCredentials_FromCredentialStore()
+    {
+        InMemoryCredentialStore credentialStore = new(new BotCredentials
+        {
+            BotToken = "store-token",
+            BotId = "store-bot",
+            BaseUrl = "https://unit.test/",
+            UserId = "store-user",
+            SavedAt = DateTimeOffset.UtcNow,
+        });
+
+        using var bot = new WeixinBot(new WeixinBotOptions
+        {
+            CredentialStore = credentialStore,
+        });
+
+        Assert.True(bot.IsLoggedIn);
+        Assert.NotNull(bot.CurrentCredentials);
+        Assert.Equal("store-user", bot.CurrentCredentials!.UserId);
+        Assert.Equal(1, credentialStore.LoadCount);
+    }
+
+    [Fact]
+    public async Task LoginAsync_SavesCredentials_ToCredentialStore()
+    {
+        var handler = new ScriptedHttpMessageHandler();
+        handler.EnqueueJson("""
+        {
+          "qrcode": "qr-login",
+          "qrcode_img_content": "https://qr/login"
+        }
+        """);
+        handler.EnqueueJson("""
+        {
+          "status": "confirmed",
+          "bot_token": "saved-token",
+          "ilink_bot_id": "saved-bot",
+          "baseurl": "https://unit.test/",
+          "ilink_user_id": "saved-user"
+        }
+        """);
+
+        InMemoryCredentialStore credentialStore = new(null);
+        using var httpClient = new HttpClient(handler);
+        await using var bot = new WeixinBot(new WeixinBotOptions
+        {
+            CredentialStore = credentialStore,
+            HttpClient = httpClient,
+        });
+
+        await bot.LoginAsync(new LoginOptions
+        {
+            OnQrCode = _ => ValueTask.CompletedTask,
+            OnStatusChanged = _ => ValueTask.CompletedTask,
+        });
+
+        Assert.NotNull(credentialStore.SavedCredentials);
+        Assert.Equal("saved-token", credentialStore.SavedCredentials!.BotToken);
+        Assert.Equal("saved-bot", credentialStore.SavedCredentials.BotId);
+        Assert.Equal("saved-user", credentialStore.SavedCredentials.UserId);
+        Assert.Equal(1, credentialStore.SaveCount);
+    }
+
+    [Fact]
     public async Task Start_RaisesStarted_AndStopAsync_RaisesStopped()
     {
         var credentialsPath = TestSupport.CreateCredentialsFile("bot-user");

@@ -1,4 +1,5 @@
 using Weixin.Bot.Sdk.Api;
+using Weixin.Bot.Sdk.Credentials;
 using Weixin.Bot.Sdk.Media;
 using Weixin.Bot.Sdk.Models;
 using Weixin.Bot.Sdk.Models.Wire;
@@ -20,15 +21,10 @@ public sealed class WeixinBot : IAsyncDisposable, IDisposable
     private readonly CdnClient _cdnClient;
     private readonly HttpClient _sharedHttpClient;
     private readonly bool _ownsSharedHttpClient;
-    private readonly string? _credentialsPath;
+    private readonly IBotCredentialStore? _credentialStore;
     private readonly Dictionary<string, string> _contextTokens = new();
     private readonly Queue<string> _contextOrder = new();
     private readonly Lock _contextLock = new();
-    private readonly JsonSerializerOptions _credentialSerializerOptions = new()
-    {
-        WriteIndented = true,
-        PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
-    };
 
     private CancellationTokenSource? _pollingCts;
     private Task? _pollingTask;
@@ -44,7 +40,8 @@ public sealed class WeixinBot : IAsyncDisposable, IDisposable
     public WeixinBot(WeixinBotOptions? options = null)
     {
         options ??= new();
-        _credentialsPath = options.CredentialsPath;
+        _credentialStore = options.CredentialStore
+            ?? (string.IsNullOrWhiteSpace(options.CredentialsPath) ? null : new FileBotCredentialStore(options.CredentialsPath));
         _sharedHttpClient = options.HttpClient ?? new HttpClient();
         _ownsSharedHttpClient = options.HttpClient is null;
 
@@ -62,7 +59,7 @@ public sealed class WeixinBot : IAsyncDisposable, IDisposable
             BaseUrl = _api.CdnUrl,
         };
 
-        TryLoadCredentials();
+        LoadCredentialsAsync(CancellationToken.None).GetAwaiter().GetResult();
     }
 
     internal CdnClient Cdn => _cdnClient;
@@ -124,6 +121,17 @@ public sealed class WeixinBot : IAsyncDisposable, IDisposable
     /// <returns>The authenticated login result.</returns>
     public Task<LoginResult> LoginAsync(LoginOptions? options = null, CancellationToken cancellationToken = default)
         => LoginCoreAsync(options, cancellationToken);
+
+    /// <summary>
+    /// Loads credentials from the configured credential store and applies them to this bot.
+    /// </summary>
+    /// <param name="cancellationToken">A token that can cancel the load operation.</param>
+    /// <returns><see langword="true"/> when valid credentials were loaded; otherwise, <see langword="false"/>.</returns>
+    public async Task<bool> LoadCredentialsAsync(CancellationToken cancellationToken = default)
+    {
+        ThrowIfDisposed();
+        return await TryLoadCredentialsAsync(cancellationToken).ConfigureAwait(false);
+    }
 
     /// <summary>
     /// Starts the long-polling loop for receiving messages.
@@ -449,7 +457,7 @@ public sealed class WeixinBot : IAsyncDisposable, IDisposable
             UserId = result.UserId,
             SavedAt = DateTimeOffset.UtcNow,
         };
-        SaveCredentials(creds);
+        await SaveCredentialsAsync(creds, cancellationToken).ConfigureAwait(false);
         LoggedIn?.Invoke(this, new LoginSucceededEventArgs(result));
         return result;
     }
@@ -790,16 +798,15 @@ public sealed class WeixinBot : IAsyncDisposable, IDisposable
         return new WeixinMedia(media.EncryptQueryParam, media.AesKey, media.EncryptType);
     }
 
-    private void TryLoadCredentials()
+    private async Task<bool> TryLoadCredentialsAsync(CancellationToken cancellationToken)
     {
-        if (string.IsNullOrWhiteSpace(_credentialsPath) || !File.Exists(_credentialsPath))
+        if (_credentialStore is null)
         {
-            return;
+            return false;
         }
         try
         {
-            var json = File.ReadAllText(_credentialsPath);
-            var creds = JsonSerializer.Deserialize<BotCredentials>(json, _credentialSerializerOptions);
+            BotCredentials? creds = await _credentialStore.LoadAsync(cancellationToken).ConfigureAwait(false);
             if (creds?.BotToken is { Length: > 0 })
             {
                 _api.Token = creds.BotToken;
@@ -809,38 +816,43 @@ public sealed class WeixinBot : IAsyncDisposable, IDisposable
                 }
                 _credentials = creds;
                 CredentialsLoaded?.Invoke(this, new CredentialsEventArgs(creds));
+                return true;
             }
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            throw;
         }
         catch (Exception ex)
         {
             Error?.Invoke(this, new WeixinBotErrorEventArgs(ex));
         }
+
+        return false;
     }
 
-    private void SaveCredentials(BotCredentials credentials)
+    private async Task SaveCredentialsAsync(BotCredentials credentials, CancellationToken cancellationToken)
     {
         _credentials = credentials;
-        if (string.IsNullOrWhiteSpace(_credentialsPath))
+        if (_credentialStore is null)
         {
             return;
         }
         try
         {
-            var directory = Path.GetDirectoryName(_credentialsPath);
-            if (!string.IsNullOrEmpty(directory))
-            {
-                Directory.CreateDirectory(directory);
-            }
-            var payload = new BotCredentials
+            BotCredentials payload = new()
             {
                 BotToken = credentials.BotToken,
                 BotId = credentials.BotId,
                 BaseUrl = credentials.BaseUrl,
                 UserId = credentials.UserId,
-                SavedAt = DateTimeOffset.UtcNow,
+                SavedAt = credentials.SavedAt ?? DateTimeOffset.UtcNow,
             };
-            var json = JsonSerializer.Serialize(payload, _credentialSerializerOptions);
-            File.WriteAllText(_credentialsPath, json);
+            await _credentialStore.SaveAsync(payload, cancellationToken).ConfigureAwait(false);
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            throw;
         }
         catch (Exception ex)
         {

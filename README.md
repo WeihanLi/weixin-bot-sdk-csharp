@@ -10,7 +10,7 @@ This repository contains:
 ## Features
 
 - QR-code login flow for iLink bots
-- Credential persistence to a local JSON file
+- Configurable credential persistence through file, API, database, or custom stores
 - Long-polling for inbound user messages
 - Strongly typed message models for text, image, video, file, and voice messages
 - Send helpers for text, image, video, file, and voice content
@@ -111,7 +111,8 @@ await Task.Delay(Timeout.Infinite, shutdown.Token);
 
 ## Credentials
 
-`WeixinBot` can load and save bot credentials automatically when `CredentialsPath` is set.
+`WeixinBot` can load and save bot credentials automatically through a credential store.
+For local file storage, set `CredentialsPath` or configure `CredentialStore` with `FileBotCredentialStore`.
 
 Saved credentials use this shape:
 
@@ -126,6 +127,33 @@ Saved credentials use this shape:
 ```
 
 If a valid credential file exists, the bot can skip QR login and start polling immediately.
+
+Custom stores can load credentials from an API, database, secrets manager, or any other backing store:
+
+```csharp
+using Weixin.Bot.Sdk.Credentials;
+using Weixin.Bot.Sdk.Models;
+
+public sealed class DatabaseCredentialStore : IBotCredentialStore
+{
+    public async ValueTask<BotCredentials?> LoadAsync(CancellationToken cancellationToken = default)
+    {
+        // Query your database or API and map the result to BotCredentials.
+        return await LoadFromDatabaseAsync(cancellationToken);
+    }
+
+    public async ValueTask SaveAsync(BotCredentials credentials, CancellationToken cancellationToken = default)
+    {
+        // Upsert the credential record after a successful QR login.
+        await SaveToDatabaseAsync(credentials, cancellationToken);
+    }
+}
+
+await using var bot = new WeixinBot(new WeixinBotOptions
+{
+    CredentialStore = new DatabaseCredentialStore(),
+});
+```
 
 ## Handling Messages
 
@@ -250,6 +278,7 @@ bot.MessageReceived += async (_, args) =>
 - `Token`
 - `Version`
 - `CredentialsPath`
+- `CredentialStore`
 - `HttpClient`
 
 Defaults:

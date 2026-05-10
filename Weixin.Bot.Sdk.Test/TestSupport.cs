@@ -1,5 +1,7 @@
 using System.Net;
 using System.Text;
+using Weixin.Bot.Sdk.Credentials;
+using Weixin.Bot.Sdk.Models;
 
 namespace Weixin.Bot.Sdk.Test;
 
@@ -66,5 +68,36 @@ internal sealed class ScriptedHttpMessageHandler : HttpMessageHandler
           "msgs": []
         }
         """);
+    }
+}
+
+internal sealed class InMemoryCredentialStore : IBotCredentialStore
+{
+    private readonly BotCredentials? _credentialsToLoad;
+
+    public InMemoryCredentialStore(BotCredentials? credentialsToLoad)
+    {
+        _credentialsToLoad = credentialsToLoad;
+    }
+
+    public BotCredentials? SavedCredentials { get; private set; }
+
+    public int LoadCount { get; private set; }
+
+    public int SaveCount { get; private set; }
+
+    public ValueTask<BotCredentials?> LoadAsync(CancellationToken cancellationToken = default)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        LoadCount++;
+        return ValueTask.FromResult(_credentialsToLoad);
+    }
+
+    public ValueTask SaveAsync(BotCredentials credentials, CancellationToken cancellationToken = default)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        SavedCredentials = credentials;
+        SaveCount++;
+        return ValueTask.CompletedTask;
     }
 }
