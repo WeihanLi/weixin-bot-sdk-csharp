@@ -264,7 +264,7 @@ public sealed class MessageParsingTests
             });
 
             using var cts = new CancellationTokenSource();
-            await bot.StartAsync(cts.Token);
+            await bot.StartAsync(new LoginOptions(), cts.Token);
 
             var message = await received.Task.WaitAsync(TimeSpan.FromSeconds(3));
             cts.Cancel();

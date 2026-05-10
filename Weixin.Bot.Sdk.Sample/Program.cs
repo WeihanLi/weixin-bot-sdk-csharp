@@ -42,29 +42,23 @@ await using var bot = new WeixinBot(echoHandler, new WeixinBotOptions
 });
 echoHandler.Bot = bot;
 
-if (!bot.IsLoggedIn)
+await bot.StartAsync(new LoginOptions
 {
-    Console.WriteLine("No saved credentials found. Scan the QR URL below to log in.");
-
-    await bot.LoginAsync(new LoginOptions
+    OnQrCode = qr =>
     {
-        OnQrCode = qr =>
-        {
-            Console.WriteLine();
-            Console.WriteLine("QR code URL:");
-            Console.WriteLine(qr);
-            Console.WriteLine();
-            return ValueTask.CompletedTask;
-        },
-        OnStatusChanged = status =>
-        {
-            Console.WriteLine($"QR status: {status}");
-            return ValueTask.CompletedTask;
-        },
-    }, shutdown.Token);
-}
-
-await bot.StartAsync(shutdown.Token);
+        Console.WriteLine("No saved credentials found. Scan the QR URL below to log in.");
+        Console.WriteLine();
+        Console.WriteLine("QR code URL:");
+        Console.WriteLine(qr);
+        Console.WriteLine();
+        return ValueTask.CompletedTask;
+    },
+    OnStatusChanged = status =>
+    {
+        Console.WriteLine($"QR status: {status}");
+        return ValueTask.CompletedTask;
+    },
+}, shutdown.Token);
 
 Console.WriteLine("Bot is running. Press Ctrl+C to stop.");
 

@@ -58,9 +58,7 @@ public sealed class WeixinBot : IWeixinBot, IAsyncDisposable, IDisposable
         _onSessionExpired = options.OnSessionExpired;
         _onError = options.OnError;
         _credentialStore = options.CredentialStore
-            ?? (string.IsNullOrWhiteSpace(options.CredentialsPath) 
-                ? throw new ArgumentException("CredentialsPath must be provided if no CredentialStore is specified.", nameof(options.CredentialsPath)) 
-                : new FileBotCredentialStore(options.CredentialsPath));
+            ?? (string.IsNullOrWhiteSpace(options.CredentialsPath) ? null : new FileBotCredentialStore(options.CredentialsPath));
         _sharedHttpClient = options.HttpClient ?? new HttpClient();
         _ownsSharedHttpClient = options.HttpClient is null;
 
@@ -76,59 +74,31 @@ public sealed class WeixinBot : IWeixinBot, IAsyncDisposable, IDisposable
         _api = new(apiOptions);
         _cdnClient = new CdnClient(_sharedHttpClient, _api.CdnUrl, apiOptions.LoggerFactory);
 
-        LoadCredentialsAsync(CancellationToken.None).GetAwaiter().GetResult();
+        TryLoadCredentialsAsync(CancellationToken.None).GetAwaiter().GetResult();
     }
 
     internal CdnClient Cdn => _cdnClient;
-    /// <summary>
-    /// Gets a value indicating whether the bot currently has an authenticated token.
-    /// </summary>
-    public bool IsLoggedIn => !string.IsNullOrWhiteSpace(_api.Token);
-
     /// <summary>
     /// Gets a value indicating whether the polling loop is currently active.
     /// </summary>
     public bool IsRunning => _pollingTask is { IsCompleted: false };
 
     /// <summary>
-    /// Gets the credentials currently loaded into the bot, if any.
+    /// Logs in using <paramref name="loginOptions"/> if valid credentials are not already loaded,
+    /// then starts the long-polling loop for receiving messages.
     /// </summary>
-    public BotCredentials? CurrentCredentials => _credentials;
-
-    /// <summary>
-    /// Performs the login flow, including QR code generation and status polling.
-    /// </summary>
-    /// <param name="options">Optional login behavior overrides.</param>
-    /// <param name="cancellationToken">A token that can cancel the login operation.</param>
-    /// <returns>The authenticated login result.</returns>
-    public Task<LoginResult> LoginAsync(LoginOptions? options = null, CancellationToken cancellationToken = default)
-        => LoginCoreAsync(options, cancellationToken);
-
-    /// <summary>
-    /// Loads credentials from the configured credential store and applies them to this bot.
-    /// </summary>
-    /// <param name="cancellationToken">A token that can cancel the load operation.</param>
-    /// <returns><see langword="true"/> when valid credentials were loaded; otherwise, <see langword="false"/>.</returns>
-    public async Task<bool> LoadCredentialsAsync(CancellationToken cancellationToken = default)
-    {
-        ThrowIfDisposed();
-        return await TryLoadCredentialsAsync(cancellationToken).ConfigureAwait(false);
-    }
-
-    /// <summary>
-    /// Starts the long-polling loop for receiving messages.
-    /// </summary>
+    /// <param name="loginOptions">Login options used when credentials are not already loaded.</param>
     /// <param name="cancellationToken">A token that can stop polling.</param>
-    public async Task StartAsync(CancellationToken cancellationToken = default)
+    public async Task StartAsync(LoginOptions loginOptions, CancellationToken cancellationToken = default)
     {
         ThrowIfDisposed();
         if (IsRunning)
         {
             return;
         }
-        if (!IsLoggedIn)
+        if (string.IsNullOrWhiteSpace(_api.Token))
         {
-            throw new InvalidOperationException("Not logged in. Call LoginAsync first.");
+            await LoginCoreAsync(loginOptions, cancellationToken).ConfigureAwait(false);
         }
         if (_messageHandler is null)
         {

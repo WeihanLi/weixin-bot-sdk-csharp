@@ -49,7 +49,7 @@ public sealed class PollingTests
             });
 
             using var cts = new CancellationTokenSource();
-            await bot.StartAsync(cts.Token);
+            await bot.StartAsync(new(), cts.Token);
 
             var completed = await Task.WhenAny(received.Task, Task.Delay(TimeSpan.FromSeconds(3)));
             Assert.Same(received.Task, completed);
@@ -114,7 +114,7 @@ public sealed class PollingTests
             });
 
             using var cts = new CancellationTokenSource(TimeSpan.FromMilliseconds(250));
-            await bot.StartAsync(cts.Token);
+            await bot.StartAsync(new(), cts.Token);
 
             await Assert.ThrowsAnyAsync<OperationCanceledException>(() => Task.Delay(TimeSpan.FromSeconds(5), cts.Token));
             await bot.StopAsync();
@@ -167,7 +167,7 @@ public sealed class PollingTests
         });
 
         using var cts = new CancellationTokenSource();
-        await bot.StartAsync(cts.Token);
+        await bot.StartAsync(new(), cts.Token);
 
         var completed = await Task.WhenAny(received.Task, Task.Delay(TimeSpan.FromSeconds(3)));
         Assert.Same(received.Task, completed);

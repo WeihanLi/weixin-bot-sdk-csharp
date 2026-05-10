@@ -8,40 +8,19 @@ namespace Weixin.Bot.Sdk.Bot;
 public interface IWeixinBot
 {
     /// <summary>
-    /// Gets a value indicating whether the bot currently has an authenticated token.
-    /// </summary>
-    bool IsLoggedIn { get; }
-
-    /// <summary>
     /// Gets a value indicating whether the polling loop is currently active.
     /// </summary>
     bool IsRunning { get; }
 
     /// <summary>
-    /// Gets the credentials currently loaded into the bot, if any.
+    /// Logs in using <paramref name="loginOptions"/> if valid credentials are not already loaded,
+    /// then starts the long-polling loop for receiving messages.
     /// </summary>
-    BotCredentials? CurrentCredentials { get; }
-
-    /// <summary>
-    /// Performs the login flow, including QR code generation and status polling.
-    /// </summary>
-    /// <param name="options">Optional login behavior overrides.</param>
-    /// <param name="cancellationToken">A token that can cancel the login operation.</param>
-    /// <returns>The authenticated login result.</returns>
-    Task<LoginResult> LoginAsync(LoginOptions? options = null, CancellationToken cancellationToken = default);
-
-    /// <summary>
-    /// Loads credentials from the configured credential store and applies them to this bot.
-    /// </summary>
-    /// <param name="cancellationToken">A token that can cancel the load operation.</param>
-    /// <returns><see langword="true"/> when valid credentials were loaded; otherwise, <see langword="false"/>.</returns>
-    Task<bool> LoadCredentialsAsync(CancellationToken cancellationToken = default);
-
-    /// <summary>
-    /// Starts the long-polling loop for receiving messages.
-    /// </summary>
+    /// <param name="loginOptions">
+    /// Login options used when credentials are not already loaded.
+    /// </param>
     /// <param name="cancellationToken">A token that can stop polling.</param>
-    Task StartAsync(CancellationToken cancellationToken = default);
+    Task StartAsync(LoginOptions loginOptions, CancellationToken cancellationToken = default);
 
     /// <summary>
     /// Stops the polling loop if it is running.

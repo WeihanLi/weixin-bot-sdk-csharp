@@ -51,7 +51,7 @@ public sealed class SendTests
             });
 
             using var cts = new CancellationTokenSource();
-            await bot.StartAsync(cts.Token);
+            await bot.StartAsync(new(), cts.Token);
             Assert.True(await received.Task.WaitAsync(TimeSpan.FromSeconds(3)));
 
             await bot.SendTextAsync("user-1", "pong");
@@ -116,7 +116,7 @@ public sealed class SendTests
             });
 
             using var cts = new CancellationTokenSource();
-            await bot.StartAsync(cts.Token);
+            await bot.StartAsync(new(), cts.Token);
             var inbound = await received.Task.WaitAsync(TimeSpan.FromSeconds(3));
 
             await bot.ReplyAsync(inbound, "reply");

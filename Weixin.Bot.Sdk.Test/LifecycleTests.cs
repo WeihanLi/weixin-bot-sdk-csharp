@@ -12,14 +12,15 @@ public sealed class LifecycleTests
         var credentialsPath = TestSupport.CreateCredentialsFile("bot-user");
         try
         {
+            BotCredentials? loaded = null;
             using var bot = new WeixinBot(null, new WeixinBotOptions
             {
                 CredentialsPath = credentialsPath,
+                OnCredentialsLoaded = (_, args) => loaded = args.Credentials,
             });
 
-            Assert.True(bot.IsLoggedIn);
-            Assert.NotNull(bot.CurrentCredentials);
-            Assert.Equal("bot-user", bot.CurrentCredentials!.UserId);
+            Assert.NotNull(loaded);
+            Assert.Equal("bot-user", loaded!.UserId);
         }
         finally
         {
@@ -39,19 +40,20 @@ public sealed class LifecycleTests
             SavedAt = DateTimeOffset.UtcNow,
         });
 
+        BotCredentials? loaded = null;
         using var bot = new WeixinBot(null, new WeixinBotOptions
         {
             CredentialStore = credentialStore,
+            OnCredentialsLoaded = (_, args) => loaded = args.Credentials,
         });
 
-        Assert.True(bot.IsLoggedIn);
-        Assert.NotNull(bot.CurrentCredentials);
-        Assert.Equal("store-user", bot.CurrentCredentials!.UserId);
+        Assert.NotNull(loaded);
+        Assert.Equal("store-user", loaded!.UserId);
         Assert.Equal(1, credentialStore.LoadCount);
     }
 
     [Fact]
-    public async Task LoginAsync_SavesCredentials_ToCredentialStore()
+    public async Task StartAsync_SavesCredentials_ToCredentialStore()
     {
         var handler = new ScriptedHttpMessageHandler();
         handler.EnqueueJson("""
@@ -72,17 +74,20 @@ public sealed class LifecycleTests
 
         InMemoryCredentialStore credentialStore = new(null);
         using var httpClient = new HttpClient(handler);
-        await using var bot = new WeixinBot(null, new WeixinBotOptions
+        await using var bot = new WeixinBot(new DelegateMessageHandler((_, _) => Task.CompletedTask), new WeixinBotOptions
         {
             CredentialStore = credentialStore,
             HttpClient = httpClient,
         });
 
-        await bot.LoginAsync(new LoginOptions
+        using var cts = new CancellationTokenSource();
+        await bot.StartAsync(new LoginOptions
         {
             OnQrCode = _ => ValueTask.CompletedTask,
             OnStatusChanged = _ => ValueTask.CompletedTask,
-        });
+        }, cts.Token);
+        cts.Cancel();
+        await bot.StopAsync();
 
         Assert.NotNull(credentialStore.SavedCredentials);
         Assert.Equal("saved-token", credentialStore.SavedCredentials!.BotToken);
@@ -110,7 +115,7 @@ public sealed class LifecycleTests
             });
 
             using var cts = new CancellationTokenSource();
-            await bot.StartAsync(cts.Token);
+            await bot.StartAsync(new LoginOptions(), cts.Token);
 
             Assert.True(await started.Task.WaitAsync(TimeSpan.FromSeconds(3)) > DateTimeOffset.MinValue);
 
@@ -126,21 +131,13 @@ public sealed class LifecycleTests
     }
 
     [Fact]
-    public async Task Start_WithoutLogin_ThrowsInvalidOperationException()
-    {
-        using var bot = new WeixinBot(null, new WeixinBotOptions());
-        var exception = await Assert.ThrowsAsync<InvalidOperationException>(() => bot.StartAsync());
-        Assert.Contains("Not logged in", exception.Message);
-    }
-
-    [Fact]
     public async Task Start_WithoutMessageHandler_ThrowsInvalidOperationException()
     {
         var credentialsPath = TestSupport.CreateCredentialsFile("bot-user");
         try
         {
             using var bot = new WeixinBot(null, new WeixinBotOptions { CredentialsPath = credentialsPath });
-            var exception = await Assert.ThrowsAsync<InvalidOperationException>(() => bot.StartAsync());
+            var exception = await Assert.ThrowsAsync<InvalidOperationException>(() => bot.StartAsync(new()));
             Assert.Contains("message handler", exception.Message);
         }
         finally
@@ -176,7 +173,7 @@ public sealed class LifecycleTests
                 OnStopped = (_, _) => stopped.TrySetResult(true),
             });
 
-            await bot.StartAsync();
+            await bot.StartAsync(new());
 
             Assert.Equal(-14, await expired.Task.WaitAsync(TimeSpan.FromSeconds(3)));
             Assert.True(await stopped.Task.WaitAsync(TimeSpan.FromSeconds(3)));
@@ -268,14 +265,12 @@ public sealed class LifecycleTests
             OnLoggedIn = (_, _) => Interlocked.Increment(ref loginCount),
         });
 
-        await bot.LoginAsync(new LoginOptions
+        using var cts = new CancellationTokenSource();
+        await bot.StartAsync(new LoginOptions
         {
             OnQrCode = _ => ValueTask.CompletedTask,
             OnStatusChanged = _ => ValueTask.CompletedTask,
-        });
-
-        using var cts = new CancellationTokenSource();
-        await bot.StartAsync(cts.Token);
+        }, cts.Token);
 
         Assert.Equal(-14, await expired.Task.WaitAsync(TimeSpan.FromSeconds(3)));
         var message = await received.Task.WaitAsync(TimeSpan.FromSeconds(3));
@@ -306,7 +301,7 @@ public sealed class LifecycleTests
             });
 
             using var cts = new CancellationTokenSource();
-            await bot.StartAsync(cts.Token);
+            await bot.StartAsync(new LoginOptions(), cts.Token);
 
             var exception = await error.Task.WaitAsync(TimeSpan.FromSeconds(3));
             Assert.IsType<HttpRequestException>(exception);

@@ -36,12 +36,13 @@ public sealed class LoggingAndDiTests
     public void AddWeixinBot_RegistersWeixinBotAsSingleton()
     {
         ServiceCollection services = new();
+        services.AddSingleton<IWeixinMessageHandler>(new DelegateMessageHandler((_, _) => Task.CompletedTask));
         services.AddWeixinBot();
 
         using ServiceProvider provider = services.BuildServiceProvider();
 
-        WeixinBot bot1 = provider.GetRequiredService<WeixinBot>();
-        WeixinBot bot2 = provider.GetRequiredService<WeixinBot>();
+        IWeixinBot bot1 = provider.GetRequiredService<IWeixinBot>();
+        IWeixinBot bot2 = provider.GetRequiredService<IWeixinBot>();
 
         Assert.Same(bot1, bot2);
     }
@@ -51,13 +52,14 @@ public sealed class LoggingAndDiTests
     {
         const string expectedVersion = "test-2.0";
         ServiceCollection services = new();
+        services.AddSingleton<IWeixinMessageHandler>(new DelegateMessageHandler((_, _) => Task.CompletedTask));
         services.AddWeixinBot(options => options.Version = expectedVersion);
 
         using ServiceProvider provider = services.BuildServiceProvider();
 
         // Constructing the bot succeeds — we can't read Version back directly from the bot,
         // but we verify the factory delegate ran without error.
-        WeixinBot bot = provider.GetRequiredService<WeixinBot>();
+        IWeixinBot bot = provider.GetRequiredService<IWeixinBot>();
         Assert.NotNull(bot);
     }
 
@@ -66,11 +68,12 @@ public sealed class LoggingAndDiTests
     {
         ServiceCollection services = new();
         services.AddSingleton<ILoggerFactory>(NullLoggerFactory.Instance);
+        services.AddSingleton<IWeixinMessageHandler>(new DelegateMessageHandler((_, _) => Task.CompletedTask));
         services.AddWeixinBot();
 
         using ServiceProvider provider = services.BuildServiceProvider();
 
-        WeixinBot bot = provider.GetRequiredService<WeixinBot>();
+        IWeixinBot bot = provider.GetRequiredService<IWeixinBot>();
         Assert.NotNull(bot);
     }
 
@@ -79,11 +82,12 @@ public sealed class LoggingAndDiTests
     {
         ServiceCollection services = new();
         services.AddSingleton<ILoggerFactory>(NullLoggerFactory.Instance);
+        services.AddSingleton<IWeixinMessageHandler>(new DelegateMessageHandler((_, _) => Task.CompletedTask));
         services.AddWeixinBot(options => options.LoggerFactory = NullLoggerFactory.Instance);
 
         using ServiceProvider provider = services.BuildServiceProvider();
 
-        WeixinBot bot = provider.GetRequiredService<WeixinBot>();
+        IWeixinBot bot = provider.GetRequiredService<IWeixinBot>();
         Assert.NotNull(bot);
     }
 }
