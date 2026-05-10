@@ -22,15 +22,15 @@ public static class WeixinBotServiceCollectionExtensions
     {
         ArgumentNullException.ThrowIfNull(services);
 
-        services.AddSingleton(provider =>
+        services.AddSingleton<IWeixinBot>(provider =>
         {
             WeixinBotOptions options = new();
             configure?.Invoke(options);
             options.LoggerFactory ??= provider.GetService<ILoggerFactory>();
-            IWeixinMessageHandler? handler = provider.GetService<IWeixinMessageHandler>();
+            options.CredentialStore ??= provider.GetService<Credentials.IBotCredentialStore>();
+            var handler = provider.GetRequiredService<IWeixinMessageHandler>();
             return new WeixinBot(handler, options);
         });
-        services.AddSingleton<IWeixinBot>(provider => provider.GetRequiredService<WeixinBot>());
 
         return services;
     }

@@ -1,5 +1,7 @@
 #:project ../Weixin.Bot.Sdk/Weixin.Bot.Sdk.csproj
+#:package Microsoft.Extensions.Logging.Console
 
+using Microsoft.Extensions.Logging;
 using Weixin.Bot.Sdk.Bot;
 using Weixin.Bot.Sdk.Models;
 
@@ -8,6 +10,13 @@ if (string.IsNullOrWhiteSpace(credentialsPath))
 {
     credentialsPath = Path.Combine(AppContext.BaseDirectory, "weixin-bot.credentials.json");
 }
+
+using var loggerFactory = LoggerFactory.Create(builder =>
+{
+    builder
+        .AddConsole()
+        .SetMinimumLevel(LogLevel.Debug);
+});
 
 using var shutdown = new CancellationTokenSource();
 Console.CancelKeyPress += (_, args) =>
@@ -20,6 +29,7 @@ var echoHandler = new EchoMessageHandler();
 var weixinBotOptions = new WeixinBotOptions
 {
     CredentialsPath = credentialsPath,
+    LoggerFactory = loggerFactory,
     OnCredentialsLoaded = (_, args) =>
     {
         Console.WriteLine($"Loaded credentials for bot {args.Credentials.BotId ?? "(unknown)"}.");

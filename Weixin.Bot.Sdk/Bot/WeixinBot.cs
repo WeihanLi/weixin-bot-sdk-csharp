@@ -58,7 +58,9 @@ public sealed class WeixinBot : IWeixinBot, IAsyncDisposable, IDisposable
         _onSessionExpired = options.OnSessionExpired;
         _onError = options.OnError;
         _credentialStore = options.CredentialStore
-            ?? (string.IsNullOrWhiteSpace(options.CredentialsPath) ? null : new FileBotCredentialStore(options.CredentialsPath));
+            ?? (string.IsNullOrWhiteSpace(options.CredentialsPath) 
+                ? throw new ArgumentException("CredentialsPath must be provided if no CredentialStore is specified.", nameof(options.CredentialsPath)) 
+                : new FileBotCredentialStore(options.CredentialsPath));
         _sharedHttpClient = options.HttpClient ?? new HttpClient();
         _ownsSharedHttpClient = options.HttpClient is null;
 
