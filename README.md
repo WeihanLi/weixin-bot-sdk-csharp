@@ -109,7 +109,7 @@ if (!bot.IsLoggedIn)
 }
 
 using var shutdown = new CancellationTokenSource();
-bot.Start(shutdown.Token);
+await bot.StartAsync(shutdown.Token);
 
 Console.WriteLine("Bot is running. Press Ctrl+C to stop.");
 await Task.Delay(Timeout.Infinite, shutdown.Token);

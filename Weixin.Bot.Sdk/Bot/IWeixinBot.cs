@@ -41,7 +41,7 @@ public interface IWeixinBot
     /// Starts the long-polling loop for receiving messages.
     /// </summary>
     /// <param name="cancellationToken">A token that can stop polling.</param>
-    void Start(CancellationToken cancellationToken = default);
+    Task StartAsync(CancellationToken cancellationToken = default);
 
     /// <summary>
     /// Stops the polling loop if it is running.

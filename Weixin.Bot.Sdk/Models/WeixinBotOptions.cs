@@ -1,3 +1,4 @@
+using Weixin.Bot.Sdk.Bot;
 using Weixin.Bot.Sdk.Credentials;
 
 namespace Weixin.Bot.Sdk.Models;
@@ -76,7 +77,7 @@ public sealed class WeixinBotOptions
     /// <summary>
     /// Gets a handler invoked when a new inbound user message is received and parsed.
     /// </summary>
-    public EventHandler<WeixinMessageEventArgs>? OnMessageReceived { get; set; }
+    public IWeixinMessageHandler? MessageHandler { get; set; }
 
     /// <summary>
     /// Gets a handler invoked when the remote session becomes invalid and the bot starts reauthentication.

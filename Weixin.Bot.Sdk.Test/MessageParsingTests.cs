@@ -261,11 +261,11 @@ public sealed class MessageParsingTests
             {
                 CredentialsPath = credentialsPath,
                 HttpClient = httpClient,
-                OnMessageReceived = (_, args) => received.TrySetResult(args.Message),
+                MessageHandler = new DelegateMessageHandler((message, _) => { received.TrySetResult(message); return Task.CompletedTask; }),
             });
 
             using var cts = new CancellationTokenSource();
-            bot.Start(cts.Token);
+            await bot.StartAsync(cts.Token);
 
             var message = await received.Task.WaitAsync(TimeSpan.FromSeconds(3));
             cts.Cancel();

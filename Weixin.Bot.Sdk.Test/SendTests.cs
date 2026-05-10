@@ -48,11 +48,11 @@ public sealed class SendTests
             {
                 CredentialsPath = credentialsPath,
                 HttpClient = httpClient,
-                OnMessageReceived = (_, _) => received.TrySetResult(true),
+                MessageHandler = new DelegateMessageHandler((_, _) => { received.TrySetResult(true); return Task.CompletedTask; }),
             });
 
             using var cts = new CancellationTokenSource();
-            bot.Start(cts.Token);
+            await bot.StartAsync(cts.Token);
             Assert.True(await received.Task.WaitAsync(TimeSpan.FromSeconds(3)));
 
             await bot.SendTextAsync("user-1", "pong");
@@ -114,11 +114,11 @@ public sealed class SendTests
             {
                 CredentialsPath = credentialsPath,
                 HttpClient = httpClient,
-                OnMessageReceived = (_, args) => received.TrySetResult(args.Message),
+                MessageHandler = new DelegateMessageHandler((message, _) => { received.TrySetResult(message); return Task.CompletedTask; }),
             });
 
             using var cts = new CancellationTokenSource();
-            bot.Start(cts.Token);
+            await bot.StartAsync(cts.Token);
             var inbound = await received.Task.WaitAsync(TimeSpan.FromSeconds(3));
 
             await bot.ReplyAsync(inbound, "reply");

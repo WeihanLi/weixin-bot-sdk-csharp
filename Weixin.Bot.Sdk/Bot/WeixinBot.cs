@@ -30,7 +30,7 @@ public sealed class WeixinBot : IWeixinBot, IAsyncDisposable, IDisposable
     private readonly EventHandler<WeixinBotStateChangedEventArgs>? _onStopped;
     private readonly EventHandler<LoginSucceededEventArgs>? _onLoggedIn;
     private readonly EventHandler<CredentialsEventArgs>? _onCredentialsLoaded;
-    private readonly EventHandler<WeixinMessageEventArgs>? _onMessageReceived;
+    private readonly IWeixinMessageHandler? _messageHandler;
     private readonly EventHandler<SessionExpiredEventArgs>? _onSessionExpired;
     private readonly EventHandler<WeixinBotErrorEventArgs>? _onError;
 
@@ -44,16 +44,16 @@ public sealed class WeixinBot : IWeixinBot, IAsyncDisposable, IDisposable
     /// <summary>
     /// Initializes a new bot instance.
     /// </summary>
-    /// <param name="options">Optional bot configuration.</param>
-    public WeixinBot(WeixinBotOptions? options = null)
+    /// <param name="options">Bot configuration.</param>
+    public WeixinBot(WeixinBotOptions options)
     {
-        options ??= new();
+        ArgumentNullException.ThrowIfNull(options);
         _logger = options.LoggerFactory?.CreateLogger<WeixinBot>() ?? NullLogger<WeixinBot>.Instance;
         _onStarted = options.OnStarted;
         _onStopped = options.OnStopped;
         _onLoggedIn = options.OnLoggedIn;
         _onCredentialsLoaded = options.OnCredentialsLoaded;
-        _onMessageReceived = options.OnMessageReceived;
+        _messageHandler = options.MessageHandler;
         _onSessionExpired = options.OnSessionExpired;
         _onError = options.OnError;
         _credentialStore = options.CredentialStore
@@ -116,7 +116,7 @@ public sealed class WeixinBot : IWeixinBot, IAsyncDisposable, IDisposable
     /// Starts the long-polling loop for receiving messages.
     /// </summary>
     /// <param name="cancellationToken">A token that can stop polling.</param>
-    public void Start(CancellationToken cancellationToken = default)
+    public async Task StartAsync(CancellationToken cancellationToken = default)
     {
         ThrowIfDisposed();
         if (IsRunning)
@@ -127,6 +127,11 @@ public sealed class WeixinBot : IWeixinBot, IAsyncDisposable, IDisposable
         {
             throw new InvalidOperationException("Not logged in. Call LoginAsync first.");
         }
+        if (_messageHandler is null)
+        {
+            throw new InvalidOperationException("No message handler is configured. Set WeixinBotOptions.MessageHandler before starting.");
+        }
+
         _pollingCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
         _pollingTask = Task.Run(() => PollLoopAsync(_pollingCts.Token), CancellationToken.None);
         _logger.LogInformation("Polling started");
@@ -535,7 +540,7 @@ public sealed class WeixinBot : IWeixinBot, IAsyncDisposable, IDisposable
                             if (parsed is not null)
                             {
                                 _logger.LogDebug("Message received from {FromUserId}, kind {ContentKind}", parsed.FromUserId, parsed.ContentKind);
-                                _onMessageReceived?.Invoke(this, new WeixinMessageEventArgs(parsed));
+                                _ = Task.Run(() => InvokeMessageHandlerAsync(parsed, cancellationToken), CancellationToken.None);
                             }
                         }
                     }
@@ -632,6 +637,23 @@ public sealed class WeixinBot : IWeixinBot, IAsyncDisposable, IDisposable
         {
             _onError?.Invoke(this, new WeixinBotErrorEventArgs(ex));
             return false;
+        }
+    }
+
+    private async Task InvokeMessageHandlerAsync(WeixinMessage message, CancellationToken cancellationToken)
+    {
+        try
+        {
+            await _messageHandler!.HandleMessageAsync(message, cancellationToken).ConfigureAwait(false);
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            // Normal shutdown — do not log.
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Message handler threw an unhandled exception for message {MessageId}", message.MessageId);
+            _onError?.Invoke(this, new WeixinBotErrorEventArgs(ex));
         }
     }
 

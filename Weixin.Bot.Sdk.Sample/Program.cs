@@ -14,6 +14,7 @@ Console.CancelKeyPress += (_, args) =>
     shutdown.Cancel();
 };
 
+var echoHandler = new EchoMessageHandler();
 await using var bot = new WeixinBot(new WeixinBotOptions
 {
     CredentialsPath = credentialsPath,
@@ -29,11 +30,9 @@ await using var bot = new WeixinBot(new WeixinBotOptions
     OnStopped = (_, _) => Console.WriteLine("Polling stopped."),
     OnSessionExpired = (_, code) => Console.WriteLine($"Session expired with errcode {code}."),
     OnError = (_, args) => Console.WriteLine($"SDK error: {args.Exception.Message}, {args.Exception}"),
-    OnMessageReceived = async (sender, args) =>
-    {
-        await HandleMessageAsync((WeixinBot)sender!, args.Message, shutdown.Token);
-    },
+    MessageHandler = echoHandler,
 });
+echoHandler.Bot = bot;
 
 if (!bot.IsLoggedIn)
 {
@@ -57,7 +56,7 @@ if (!bot.IsLoggedIn)
     }, shutdown.Token);
 }
 
-bot.Start(shutdown.Token);
+await bot.StartAsync(shutdown.Token);
 
 Console.WriteLine("Bot is running. Press Ctrl+C to stop.");
 
@@ -71,33 +70,39 @@ catch (OperationCanceledException)
 
 await bot.StopAsync();
 
-static async Task HandleMessageAsync(WeixinBot bot, WeixinMessage message, CancellationToken cancellationToken)
+sealed class EchoMessageHandler : IWeixinMessageHandler
 {
-    try
+    public IWeixinBot? Bot { get; set; }
+
+    public async Task HandleMessageAsync(WeixinMessage message, CancellationToken cancellationToken)
     {
-        var displayText = string.IsNullOrWhiteSpace(message.TextWithQuote) ? "(non-text message)" : message.TextWithQuote;
-        Console.WriteLine($"[{message.Timestamp:O}] {message.FromUserId}: {displayText}");
-
-        await bot.SendTypingAsync(message.FromUserId, message.ContextToken, cancellationToken).ConfigureAwait(false);
-
-        var reply = message.ContentKind switch
+        if (Bot is null) return;
+        try
         {
-            MessageContentKind.Text => $"Echo: {message.Text}",
-            MessageContentKind.Image => "Received an image.",
-            MessageContentKind.Video => "Received a video.",
-            MessageContentKind.File => "Received a file.",
-            MessageContentKind.Voice => $"Received a voice message. Transcript: {message.Text}",
-            _ => "Received a message.",
-        };
+            var displayText = string.IsNullOrWhiteSpace(message.TextWithQuote) ? "(non-text message)" : message.TextWithQuote;
+            Console.WriteLine($"[{message.Timestamp:O}] {message.FromUserId}: {displayText}");
 
-        await bot.ReplyAsync(message, reply, cancellationToken).ConfigureAwait(false);
-        await bot.CancelTypingAsync(message.FromUserId, message.ContextToken, cancellationToken).ConfigureAwait(false);
-    }
-    catch (OperationCanceledException)
-    {
-    }
-    catch (Exception ex)
-    {
-        Console.WriteLine($"Failed to handle message: {ex.Message}");
+            await Bot.SendTypingAsync(message.FromUserId, message.ContextToken, cancellationToken).ConfigureAwait(false);
+
+            var reply = message.ContentKind switch
+            {
+                MessageContentKind.Text => $"Echo: {message.Text}",
+                MessageContentKind.Image => "Received an image.",
+                MessageContentKind.Video => "Received a video.",
+                MessageContentKind.File => "Received a file.",
+                MessageContentKind.Voice => $"Received a voice message. Transcript: {message.Text}",
+                _ => "Received a message.",
+            };
+
+            await Bot.ReplyAsync(message, reply, cancellationToken).ConfigureAwait(false);
+            await Bot.CancelTypingAsync(message.FromUserId, message.ContextToken, cancellationToken).ConfigureAwait(false);
+        }
+        catch (OperationCanceledException)
+        {
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Failed to handle message: {ex.Message}");
+        }
     }
 }

@@ -107,10 +107,11 @@ public sealed class LifecycleTests
                 HttpClient = httpClient,
                 OnStarted = (_, args) => started.TrySetResult(args.OccurredAt),
                 OnStopped = (_, args) => stopped.TrySetResult(args.OccurredAt),
+                MessageHandler = new DelegateMessageHandler((_, _) => Task.CompletedTask),
             });
 
             using var cts = new CancellationTokenSource();
-            bot.Start(cts.Token);
+            await bot.StartAsync(cts.Token);
 
             Assert.True(await started.Task.WaitAsync(TimeSpan.FromSeconds(3)) > DateTimeOffset.MinValue);
 
@@ -126,11 +127,27 @@ public sealed class LifecycleTests
     }
 
     [Fact]
-    public void Start_WithoutLogin_ThrowsInvalidOperationException()
+    public async Task Start_WithoutLogin_ThrowsInvalidOperationException()
     {
         using var bot = new WeixinBot(new WeixinBotOptions());
-        var exception = Assert.Throws<InvalidOperationException>(() => bot.Start());
+        var exception = await Assert.ThrowsAsync<InvalidOperationException>(() => bot.StartAsync());
         Assert.Contains("Not logged in", exception.Message);
+    }
+
+    [Fact]
+    public async Task Start_WithoutMessageHandler_ThrowsInvalidOperationException()
+    {
+        var credentialsPath = TestSupport.CreateCredentialsFile("bot-user");
+        try
+        {
+            using var bot = new WeixinBot(new WeixinBotOptions { CredentialsPath = credentialsPath });
+            var exception = await Assert.ThrowsAsync<InvalidOperationException>(() => bot.StartAsync());
+            Assert.Contains("message handler", exception.Message);
+        }
+        finally
+        {
+            File.Delete(credentialsPath);
+        }
     }
 
     [Fact]
@@ -158,9 +175,10 @@ public sealed class LifecycleTests
                 HttpClient = httpClient,
                 OnSessionExpired = (_, args) => expired.TrySetResult(args.ErrorCode),
                 OnStopped = (_, _) => stopped.TrySetResult(true),
+                MessageHandler = new DelegateMessageHandler((_, _) => Task.CompletedTask),
             });
 
-            bot.Start();
+            await bot.StartAsync();
 
             Assert.Equal(-14, await expired.Task.WaitAsync(TimeSpan.FromSeconds(3)));
             Assert.True(await stopped.Task.WaitAsync(TimeSpan.FromSeconds(3)));
@@ -250,7 +268,7 @@ public sealed class LifecycleTests
             HttpClient = httpClient,
             OnSessionExpired = (_, args) => expired.TrySetResult(args.ErrorCode),
             OnLoggedIn = (_, _) => Interlocked.Increment(ref loginCount),
-            OnMessageReceived = (_, args) => received.TrySetResult(args.Message),
+            MessageHandler = new DelegateMessageHandler((message, _) => { received.TrySetResult(message); return Task.CompletedTask; }),
         });
 
         await bot.LoginAsync(new LoginOptions
@@ -260,7 +278,7 @@ public sealed class LifecycleTests
         });
 
         using var cts = new CancellationTokenSource();
-        bot.Start(cts.Token);
+        await bot.StartAsync(cts.Token);
 
         Assert.Equal(-14, await expired.Task.WaitAsync(TimeSpan.FromSeconds(3)));
         var message = await received.Task.WaitAsync(TimeSpan.FromSeconds(3));
@@ -288,10 +306,11 @@ public sealed class LifecycleTests
                 CredentialsPath = credentialsPath,
                 HttpClient = httpClient,
                 OnError = (_, args) => error.TrySetResult(args.Exception),
+                MessageHandler = new DelegateMessageHandler((_, _) => Task.CompletedTask),
             });
 
             using var cts = new CancellationTokenSource();
-            bot.Start(cts.Token);
+            await bot.StartAsync(cts.Token);
 
             var exception = await error.Task.WaitAsync(TimeSpan.FromSeconds(3));
             Assert.IsType<HttpRequestException>(exception);

@@ -26,6 +26,7 @@ public static class WeixinBotServiceCollectionExtensions
             WeixinBotOptions options = new();
             configure?.Invoke(options);
             options.LoggerFactory ??= provider.GetService<ILoggerFactory>();
+            options.MessageHandler ??= provider.GetService<IWeixinMessageHandler>();
             return new WeixinBot(options);
         });
         services.AddSingleton<IWeixinBot>(provider => provider.GetRequiredService<WeixinBot>());

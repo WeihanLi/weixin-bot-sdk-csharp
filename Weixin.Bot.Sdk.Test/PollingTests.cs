@@ -46,11 +46,11 @@ public sealed class PollingTests
             {
                 CredentialsPath = credentialsPath,
                 HttpClient = httpClient,
-                OnMessageReceived = (_, args) => received.TrySetResult(args.Message),
+                MessageHandler = new DelegateMessageHandler((message, _) => { received.TrySetResult(message); return Task.CompletedTask; }),
             });
 
             using var cts = new CancellationTokenSource();
-            bot.Start(cts.Token);
+            await bot.StartAsync(cts.Token);
 
             var completed = await Task.WhenAny(received.Task, Task.Delay(TimeSpan.FromSeconds(3)));
             Assert.Same(received.Task, completed);
@@ -112,11 +112,11 @@ public sealed class PollingTests
             {
                 CredentialsPath = credentialsPath,
                 HttpClient = httpClient,
-                OnMessageReceived = (_, _) => received = true,
+                MessageHandler = new DelegateMessageHandler((_, _) => { received = true; return Task.CompletedTask; }),
             });
 
             using var cts = new CancellationTokenSource(TimeSpan.FromMilliseconds(250));
-            bot.Start(cts.Token);
+            await bot.StartAsync(cts.Token);
 
             await Assert.ThrowsAnyAsync<OperationCanceledException>(() => Task.Delay(TimeSpan.FromSeconds(5), cts.Token));
             await bot.StopAsync();
@@ -166,11 +166,11 @@ public sealed class PollingTests
         {
             Token = "bot-token",
             HttpClient = httpClient,
-            OnMessageReceived = (_, args) => received.TrySetResult(args.Message),
+            MessageHandler = new DelegateMessageHandler((message, _) => { received.TrySetResult(message); return Task.CompletedTask; }),
         });
 
         using var cts = new CancellationTokenSource();
-        bot.Start(cts.Token);
+        await bot.StartAsync(cts.Token);
 
         var completed = await Task.WhenAny(received.Task, Task.Delay(TimeSpan.FromSeconds(3)));
         Assert.Same(received.Task, completed);

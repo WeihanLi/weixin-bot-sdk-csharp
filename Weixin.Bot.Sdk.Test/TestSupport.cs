@@ -1,5 +1,6 @@
 using System.Net;
 using System.Text;
+using Weixin.Bot.Sdk.Bot;
 using Weixin.Bot.Sdk.Credentials;
 using Weixin.Bot.Sdk.Models;
 
@@ -27,6 +28,12 @@ internal static class TestSupport
         {
             Content = new StringContent(body, Encoding.UTF8, "application/json"),
         };
+}
+
+internal sealed class DelegateMessageHandler(Func<WeixinMessage, CancellationToken, Task> handler) : IWeixinMessageHandler
+{
+    public Task HandleMessageAsync(WeixinMessage message, CancellationToken cancellationToken)
+        => handler(message, cancellationToken);
 }
 
 internal sealed class ScriptedHttpMessageHandler : HttpMessageHandler
