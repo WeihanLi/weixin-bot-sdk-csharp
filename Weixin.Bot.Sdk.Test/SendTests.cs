@@ -42,15 +42,14 @@ public sealed class SendTests
             """);
             handler.Enqueue((_, _) => Task.FromResult(TestSupport.Json("""{ "ret": 0 }""")));
 
+            var received = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
             using var httpClient = new HttpClient(handler);
             await using var bot = new WeixinBot(new WeixinBotOptions
             {
                 CredentialsPath = credentialsPath,
                 HttpClient = httpClient,
+                OnMessageReceived = (_, _) => received.TrySetResult(true),
             });
-
-            var received = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
-            bot.MessageReceived += (_, _) => received.TrySetResult(true);
 
             using var cts = new CancellationTokenSource();
             bot.Start(cts.Token);
@@ -109,15 +108,14 @@ public sealed class SendTests
             """);
             handler.Enqueue((_, _) => Task.FromResult(TestSupport.Json("""{ "ret": 0 }""")));
 
+            var received = new TaskCompletionSource<WeixinMessage>(TaskCreationOptions.RunContinuationsAsynchronously);
             using var httpClient = new HttpClient(handler);
             await using var bot = new WeixinBot(new WeixinBotOptions
             {
                 CredentialsPath = credentialsPath,
                 HttpClient = httpClient,
+                OnMessageReceived = (_, args) => received.TrySetResult(args.Message),
             });
-
-            var received = new TaskCompletionSource<WeixinMessage>(TaskCreationOptions.RunContinuationsAsynchronously);
-            bot.MessageReceived += (_, args) => received.TrySetResult(args.Message);
 
             using var cts = new CancellationTokenSource();
             bot.Start(cts.Token);

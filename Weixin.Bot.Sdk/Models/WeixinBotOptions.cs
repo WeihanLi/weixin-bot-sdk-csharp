@@ -52,4 +52,39 @@ public sealed class WeixinBotOptions
     /// When <see langword="null"/>, a no-op logger is used.
     /// </summary>
     public ILoggerFactory? LoggerFactory { get; set; }
+
+    /// <summary>
+    /// Gets a handler invoked when the polling loop starts.
+    /// </summary>
+    public EventHandler<WeixinBotStateChangedEventArgs>? OnStarted { get; set; }
+
+    /// <summary>
+    /// Gets a handler invoked when the polling loop stops.
+    /// </summary>
+    public EventHandler<WeixinBotStateChangedEventArgs>? OnStopped { get; set; }
+
+    /// <summary>
+    /// Gets a handler invoked after a successful login completes.
+    /// </summary>
+    public EventHandler<LoginSucceededEventArgs>? OnLoggedIn { get; set; }
+
+    /// <summary>
+    /// Gets a handler invoked when credentials are loaded from persistent storage.
+    /// </summary>
+    public EventHandler<CredentialsEventArgs>? OnCredentialsLoaded { get; set; }
+
+    /// <summary>
+    /// Gets a handler invoked when a new inbound user message is received and parsed.
+    /// </summary>
+    public EventHandler<WeixinMessageEventArgs>? OnMessageReceived { get; set; }
+
+    /// <summary>
+    /// Gets a handler invoked when the remote session becomes invalid and the bot starts reauthentication.
+    /// </summary>
+    public EventHandler<SessionExpiredEventArgs>? OnSessionExpired { get; set; }
+
+    /// <summary>
+    /// Gets a handler invoked when the SDK encounters an exception during background processing.
+    /// </summary>
+    public EventHandler<WeixinBotErrorEventArgs>? OnError { get; set; }
 }

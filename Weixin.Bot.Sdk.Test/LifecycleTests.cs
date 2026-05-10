@@ -97,18 +97,17 @@ public sealed class LifecycleTests
         var credentialsPath = TestSupport.CreateCredentialsFile("bot-user");
         try
         {
+            var started = new TaskCompletionSource<DateTimeOffset>(TaskCreationOptions.RunContinuationsAsynchronously);
+            var stopped = new TaskCompletionSource<DateTimeOffset>(TaskCreationOptions.RunContinuationsAsynchronously);
             var handler = new ScriptedHttpMessageHandler();
             using var httpClient = new HttpClient(handler);
             await using var bot = new WeixinBot(new WeixinBotOptions
             {
                 CredentialsPath = credentialsPath,
                 HttpClient = httpClient,
+                OnStarted = (_, args) => started.TrySetResult(args.OccurredAt),
+                OnStopped = (_, args) => stopped.TrySetResult(args.OccurredAt),
             });
-
-            var started = new TaskCompletionSource<DateTimeOffset>(TaskCreationOptions.RunContinuationsAsynchronously);
-            var stopped = new TaskCompletionSource<DateTimeOffset>(TaskCreationOptions.RunContinuationsAsynchronously);
-            bot.Started += (_, args) => started.TrySetResult(args.OccurredAt);
-            bot.Stopped += (_, args) => stopped.TrySetResult(args.OccurredAt);
 
             using var cts = new CancellationTokenSource();
             bot.Start(cts.Token);
@@ -150,17 +149,16 @@ public sealed class LifecycleTests
             }
             """);
 
+            var expired = new TaskCompletionSource<int>(TaskCreationOptions.RunContinuationsAsynchronously);
+            var stopped = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
             using var httpClient = new HttpClient(handler);
             await using var bot = new WeixinBot(new WeixinBotOptions
             {
                 CredentialsPath = credentialsPath,
                 HttpClient = httpClient,
+                OnSessionExpired = (_, args) => expired.TrySetResult(args.ErrorCode),
+                OnStopped = (_, _) => stopped.TrySetResult(true),
             });
-
-            var expired = new TaskCompletionSource<int>(TaskCreationOptions.RunContinuationsAsynchronously);
-            var stopped = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
-            bot.SessionExpired += (_, args) => expired.TrySetResult(args.ErrorCode);
-            bot.Stopped += (_, _) => stopped.TrySetResult(true);
 
             bot.Start();
 
@@ -243,18 +241,17 @@ public sealed class LifecycleTests
         }
         """);
 
+        var expired = new TaskCompletionSource<int>(TaskCreationOptions.RunContinuationsAsynchronously);
+        var received = new TaskCompletionSource<WeixinMessage>(TaskCreationOptions.RunContinuationsAsynchronously);
+        var loginCount = 0;
         using var httpClient = new HttpClient(handler);
         await using var bot = new WeixinBot(new WeixinBotOptions
         {
             HttpClient = httpClient,
+            OnSessionExpired = (_, args) => expired.TrySetResult(args.ErrorCode),
+            OnLoggedIn = (_, _) => Interlocked.Increment(ref loginCount),
+            OnMessageReceived = (_, args) => received.TrySetResult(args.Message),
         });
-
-        var expired = new TaskCompletionSource<int>(TaskCreationOptions.RunContinuationsAsynchronously);
-        var received = new TaskCompletionSource<WeixinMessage>(TaskCreationOptions.RunContinuationsAsynchronously);
-        var loginCount = 0;
-        bot.SessionExpired += (_, args) => expired.TrySetResult(args.ErrorCode);
-        bot.LoggedIn += (_, _) => Interlocked.Increment(ref loginCount);
-        bot.MessageReceived += (_, args) => received.TrySetResult(args.Message);
 
         await bot.LoginAsync(new LoginOptions
         {
@@ -284,15 +281,14 @@ public sealed class LifecycleTests
             var handler = new ScriptedHttpMessageHandler();
             handler.Enqueue((_, _) => throw new HttpRequestException("boom"));
 
+            var error = new TaskCompletionSource<Exception>(TaskCreationOptions.RunContinuationsAsynchronously);
             using var httpClient = new HttpClient(handler);
             await using var bot = new WeixinBot(new WeixinBotOptions
             {
                 CredentialsPath = credentialsPath,
                 HttpClient = httpClient,
+                OnError = (_, args) => error.TrySetResult(args.Exception),
             });
-
-            var error = new TaskCompletionSource<Exception>(TaskCreationOptions.RunContinuationsAsynchronously);
-            bot.Error += (_, args) => error.TrySetResult(args.Exception);
 
             using var cts = new CancellationTokenSource();
             bot.Start(cts.Token);

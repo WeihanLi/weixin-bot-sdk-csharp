@@ -40,15 +40,14 @@ public sealed class PollingTests
                 }
                 """);
 
+            var received = new TaskCompletionSource<WeixinMessage>(TaskCreationOptions.RunContinuationsAsynchronously);
             using var httpClient = new HttpClient(handler);
             await using var bot = new WeixinBot(new WeixinBotOptions
             {
                 CredentialsPath = credentialsPath,
                 HttpClient = httpClient,
+                OnMessageReceived = (_, args) => received.TrySetResult(args.Message),
             });
-
-            var received = new TaskCompletionSource<WeixinMessage>(TaskCreationOptions.RunContinuationsAsynchronously);
-            bot.MessageReceived += (_, args) => received.TrySetResult(args.Message);
 
             using var cts = new CancellationTokenSource();
             bot.Start(cts.Token);
@@ -107,15 +106,14 @@ public sealed class PollingTests
                 }
                 """);
 
+            var received = false;
             using var httpClient = new HttpClient(handler);
             await using var bot = new WeixinBot(new WeixinBotOptions
             {
                 CredentialsPath = credentialsPath,
                 HttpClient = httpClient,
+                OnMessageReceived = (_, _) => received = true,
             });
-
-            var received = false;
-            bot.MessageReceived += (_, _) => received = true;
 
             using var cts = new CancellationTokenSource(TimeSpan.FromMilliseconds(250));
             bot.Start(cts.Token);
@@ -162,15 +160,14 @@ public sealed class PollingTests
             }
             """);
 
+        var received = new TaskCompletionSource<WeixinMessage>(TaskCreationOptions.RunContinuationsAsynchronously);
         using var httpClient = new HttpClient(handler);
         await using var bot = new WeixinBot(new WeixinBotOptions
         {
             Token = "bot-token",
             HttpClient = httpClient,
+            OnMessageReceived = (_, args) => received.TrySetResult(args.Message),
         });
-
-        var received = new TaskCompletionSource<WeixinMessage>(TaskCreationOptions.RunContinuationsAsynchronously);
-        bot.MessageReceived += (_, args) => received.TrySetResult(args.Message);
 
         using var cts = new CancellationTokenSource();
         bot.Start(cts.Token);

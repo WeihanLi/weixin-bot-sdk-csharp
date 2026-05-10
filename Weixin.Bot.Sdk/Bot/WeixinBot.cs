@@ -9,7 +9,7 @@ namespace Weixin.Bot.Sdk.Bot;
 /// <summary>
 /// High-level client for authenticating a WeChat iLink bot, receiving messages, and sending replies or media.
 /// </summary>
-public sealed class WeixinBot : IWeixinBot
+public sealed class WeixinBot : IWeixinBot, IAsyncDisposable, IDisposable
 {
     private const int ContextCacheLimit = 1000;
     private const int SessionExpiredErrorCode = -14;
@@ -26,6 +26,13 @@ public sealed class WeixinBot : IWeixinBot
     private readonly Queue<string> _contextOrder = new();
     private readonly Lock _contextLock = new();
     private readonly ILogger<WeixinBot> _logger;
+    private readonly EventHandler<WeixinBotStateChangedEventArgs>? _onStarted;
+    private readonly EventHandler<WeixinBotStateChangedEventArgs>? _onStopped;
+    private readonly EventHandler<LoginSucceededEventArgs>? _onLoggedIn;
+    private readonly EventHandler<CredentialsEventArgs>? _onCredentialsLoaded;
+    private readonly EventHandler<WeixinMessageEventArgs>? _onMessageReceived;
+    private readonly EventHandler<SessionExpiredEventArgs>? _onSessionExpired;
+    private readonly EventHandler<WeixinBotErrorEventArgs>? _onError;
 
     private CancellationTokenSource? _pollingCts;
     private Task? _pollingTask;
@@ -42,6 +49,13 @@ public sealed class WeixinBot : IWeixinBot
     {
         options ??= new();
         _logger = options.LoggerFactory?.CreateLogger<WeixinBot>() ?? NullLogger<WeixinBot>.Instance;
+        _onStarted = options.OnStarted;
+        _onStopped = options.OnStopped;
+        _onLoggedIn = options.OnLoggedIn;
+        _onCredentialsLoaded = options.OnCredentialsLoaded;
+        _onMessageReceived = options.OnMessageReceived;
+        _onSessionExpired = options.OnSessionExpired;
+        _onError = options.OnError;
         _credentialStore = options.CredentialStore
             ?? (string.IsNullOrWhiteSpace(options.CredentialsPath) ? null : new FileBotCredentialStore(options.CredentialsPath));
         _sharedHttpClient = options.HttpClient ?? new HttpClient();
@@ -77,41 +91,6 @@ public sealed class WeixinBot : IWeixinBot
     /// Gets the credentials currently loaded into the bot, if any.
     /// </summary>
     public BotCredentials? CurrentCredentials => _credentials;
-
-    /// <summary>
-    /// Occurs when the polling loop starts.
-    /// </summary>
-    public event EventHandler<WeixinBotStateChangedEventArgs>? Started;
-
-    /// <summary>
-    /// Occurs when the polling loop stops.
-    /// </summary>
-    public event EventHandler<WeixinBotStateChangedEventArgs>? Stopped;
-
-    /// <summary>
-    /// Occurs after a successful login completes.
-    /// </summary>
-    public event EventHandler<LoginSucceededEventArgs>? LoggedIn;
-
-    /// <summary>
-    /// Occurs when credentials are loaded from persistent storage.
-    /// </summary>
-    public event EventHandler<CredentialsEventArgs>? CredentialsLoaded;
-
-    /// <summary>
-    /// Occurs when a new inbound user message is received and parsed.
-    /// </summary>
-    public event EventHandler<WeixinMessageEventArgs>? MessageReceived;
-
-    /// <summary>
-    /// Occurs when the remote session becomes invalid and the bot starts reauthentication.
-    /// </summary>
-    public event EventHandler<SessionExpiredEventArgs>? SessionExpired;
-
-    /// <summary>
-    /// Occurs when the SDK encounters an exception during background processing.
-    /// </summary>
-    public event EventHandler<WeixinBotErrorEventArgs>? Error;
 
     /// <summary>
     /// Performs the login flow, including QR code generation and status polling.
@@ -151,7 +130,7 @@ public sealed class WeixinBot : IWeixinBot
         _pollingCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
         _pollingTask = Task.Run(() => PollLoopAsync(_pollingCts.Token), CancellationToken.None);
         _logger.LogInformation("Polling started");
-        Started?.Invoke(this, new WeixinBotStateChangedEventArgs(DateTimeOffset.UtcNow));
+        _onStarted?.Invoke(this, new WeixinBotStateChangedEventArgs(DateTimeOffset.UtcNow));
     }
 
     /// <summary>
@@ -460,7 +439,7 @@ public sealed class WeixinBot : IWeixinBot
         };
         await SaveCredentialsAsync(creds, cancellationToken).ConfigureAwait(false);
         _logger.LogInformation("Logged in as bot {BotId}", result.BotId ?? "(unknown)");
-        LoggedIn?.Invoke(this, new LoginSucceededEventArgs(result));
+        _onLoggedIn?.Invoke(this, new LoginSucceededEventArgs(result));
         return result;
     }
 
@@ -531,7 +510,7 @@ public sealed class WeixinBot : IWeixinBot
                     if (response.ErrorCode is SessionExpiredErrorCode or SessionInvalidErrorCode)
                     {
                         _logger.LogWarning("Session expired with error code {ErrorCode}", response.ErrorCode);
-                        SessionExpired?.Invoke(this, new SessionExpiredEventArgs(response.ErrorCode));
+                        _onSessionExpired?.Invoke(this, new SessionExpiredEventArgs(response.ErrorCode));
                         if (await TryReauthenticateAsync(cancellationToken).ConfigureAwait(false))
                         {
                             backoff = InitialBackoff;
@@ -556,7 +535,7 @@ public sealed class WeixinBot : IWeixinBot
                             if (parsed is not null)
                             {
                                 _logger.LogDebug("Message received from {FromUserId}, kind {ContentKind}", parsed.FromUserId, parsed.ContentKind);
-                                MessageReceived?.Invoke(this, new WeixinMessageEventArgs(parsed));
+                                _onMessageReceived?.Invoke(this, new WeixinMessageEventArgs(parsed));
                             }
                         }
                     }
@@ -570,7 +549,7 @@ public sealed class WeixinBot : IWeixinBot
                 catch (Exception ex)
                 {
                     _logger.LogError(ex, "Error during polling loop; retrying in {Backoff}", backoff);
-                    Error?.Invoke(this, new WeixinBotErrorEventArgs(ex));
+                    _onError?.Invoke(this, new WeixinBotErrorEventArgs(ex));
                     await Task.Delay(backoff, cancellationToken).ConfigureAwait(false);
                     var next = backoff.TotalMilliseconds * 2;
                     backoff = TimeSpan.FromMilliseconds(Math.Min(next, MaxBackoff.TotalMilliseconds));
@@ -584,7 +563,7 @@ public sealed class WeixinBot : IWeixinBot
             _pollingTask = null;
             cts?.Dispose();
             _logger.LogInformation("Polling stopped");
-            Stopped?.Invoke(this, new WeixinBotStateChangedEventArgs(DateTimeOffset.UtcNow));
+            _onStopped?.Invoke(this, new WeixinBotStateChangedEventArgs(DateTimeOffset.UtcNow));
         }
     }
 
@@ -634,7 +613,7 @@ public sealed class WeixinBot : IWeixinBot
     {
         if (_loginOptions is null)
         {
-            Error?.Invoke(this, new WeixinBotErrorEventArgs(
+            _onError?.Invoke(this, new WeixinBotErrorEventArgs(
                 new InvalidOperationException("Session expired and no login options are available for reauthentication.")));
             return false;
         }
@@ -651,7 +630,7 @@ public sealed class WeixinBot : IWeixinBot
         }
         catch (Exception ex)
         {
-            Error?.Invoke(this, new WeixinBotErrorEventArgs(ex));
+            _onError?.Invoke(this, new WeixinBotErrorEventArgs(ex));
             return false;
         }
     }
@@ -823,7 +802,7 @@ public sealed class WeixinBot : IWeixinBot
                 }
                 _credentials = creds;
                 _logger.LogInformation("Credentials loaded for bot {BotId}", creds.BotId ?? "(unknown)");
-                CredentialsLoaded?.Invoke(this, new CredentialsEventArgs(creds));
+                _onCredentialsLoaded?.Invoke(this, new CredentialsEventArgs(creds));
                 return true;
             }
         }
@@ -833,7 +812,7 @@ public sealed class WeixinBot : IWeixinBot
         }
         catch (Exception ex)
         {
-            Error?.Invoke(this, new WeixinBotErrorEventArgs(ex));
+            _onError?.Invoke(this, new WeixinBotErrorEventArgs(ex));
         }
 
         return false;
@@ -864,7 +843,7 @@ public sealed class WeixinBot : IWeixinBot
         }
         catch (Exception ex)
         {
-            Error?.Invoke(this, new WeixinBotErrorEventArgs(ex));
+            _onError?.Invoke(this, new WeixinBotErrorEventArgs(ex));
         }
     }
 

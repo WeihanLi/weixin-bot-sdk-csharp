@@ -5,7 +5,7 @@ namespace Weixin.Bot.Sdk.Bot;
 /// <summary>
 /// Represents a WeChat iLink bot client capable of authenticating, receiving messages, and sending replies or media.
 /// </summary>
-public interface IWeixinBot : IAsyncDisposable, IDisposable
+public interface IWeixinBot
 {
     /// <summary>
     /// Gets a value indicating whether the bot currently has an authenticated token.
@@ -21,41 +21,6 @@ public interface IWeixinBot : IAsyncDisposable, IDisposable
     /// Gets the credentials currently loaded into the bot, if any.
     /// </summary>
     BotCredentials? CurrentCredentials { get; }
-
-    /// <summary>
-    /// Occurs when the polling loop starts.
-    /// </summary>
-    event EventHandler<WeixinBotStateChangedEventArgs>? Started;
-
-    /// <summary>
-    /// Occurs when the polling loop stops.
-    /// </summary>
-    event EventHandler<WeixinBotStateChangedEventArgs>? Stopped;
-
-    /// <summary>
-    /// Occurs after a successful login completes.
-    /// </summary>
-    event EventHandler<LoginSucceededEventArgs>? LoggedIn;
-
-    /// <summary>
-    /// Occurs when credentials are loaded from persistent storage.
-    /// </summary>
-    event EventHandler<CredentialsEventArgs>? CredentialsLoaded;
-
-    /// <summary>
-    /// Occurs when a new inbound user message is received and parsed.
-    /// </summary>
-    event EventHandler<WeixinMessageEventArgs>? MessageReceived;
-
-    /// <summary>
-    /// Occurs when the remote session becomes invalid and the bot starts reauthentication.
-    /// </summary>
-    event EventHandler<SessionExpiredEventArgs>? SessionExpired;
-
-    /// <summary>
-    /// Occurs when the SDK encounters an exception during background processing.
-    /// </summary>
-    event EventHandler<WeixinBotErrorEventArgs>? Error;
 
     /// <summary>
     /// Performs the login flow, including QR code generation and status polling.

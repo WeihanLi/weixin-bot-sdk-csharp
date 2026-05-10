@@ -84,12 +84,11 @@ var credentialsPath = Path.Combine(AppContext.BaseDirectory, "weixin-bot.credent
 await using var bot = new WeixinBot(new WeixinBotOptions
 {
     CredentialsPath = credentialsPath,
+    OnMessageReceived = (sender, args) =>
+    {
+        _ = Task.Run(() => ((WeixinBot)sender!).ReplyAsync(args.Message, $"Echo: {args.Message.Text}"));
+    },
 });
-
-bot.MessageReceived += (_, args) =>
-{
-    _ = Task.Run(() => bot.ReplyAsync(args.Message, $"Echo: {args.Message.Text}"));
-};
 
 if (!bot.IsLoggedIn)
 {
@@ -164,7 +163,7 @@ await using var bot = new WeixinBot(new WeixinBotOptions
 
 ## Handling Messages
 
-Inbound messages are exposed as `WeixinMessage` instances through the `MessageReceived` event.
+Inbound messages are exposed as `WeixinMessage` instances through the `OnMessageReceived` handler in `WeixinBotOptions`.
 
 Supported content kinds:
 
@@ -177,28 +176,33 @@ Supported content kinds:
 Example:
 
 ```csharp
-bot.MessageReceived += async (_, args) =>
+await using var bot = new WeixinBot(new WeixinBotOptions
 {
-    var message = args.Message;
-
-    Console.WriteLine($"[{message.Timestamp:O}] {message.FromUserId}: {message.TextWithQuote}");
-
-    switch (message.ContentKind)
+    CredentialsPath = credentialsPath,
+    OnMessageReceived = async (sender, args) =>
     {
-        case MessageContentKind.Text:
-            await bot.ReplyAsync(message, $"Echo: {message.Text}");
-            break;
-        case MessageContentKind.Image:
-            await bot.ReplyAsync(message, "Received an image.");
-            break;
-        case MessageContentKind.Voice:
-            await bot.ReplyAsync(message, $"Transcript: {message.Text}");
-            break;
-        default:
-            await bot.ReplyAsync(message, "Received your message.");
-            break;
-    }
-};
+        var b = (WeixinBot)sender!;
+        var message = args.Message;
+
+        Console.WriteLine($"[{message.Timestamp:O}] {message.FromUserId}: {message.TextWithQuote}");
+
+        switch (message.ContentKind)
+        {
+            case MessageContentKind.Text:
+                await b.ReplyAsync(message, $"Echo: {message.Text}");
+                break;
+            case MessageContentKind.Image:
+                await b.ReplyAsync(message, "Received an image.");
+                break;
+            case MessageContentKind.Voice:
+                await b.ReplyAsync(message, $"Transcript: {message.Text}");
+                break;
+            default:
+                await b.ReplyAsync(message, "Received your message.");
+                break;
+        }
+    },
+});
 ```
 
 ## Sending Messages
@@ -246,35 +250,40 @@ Notes:
 ## Downloading Media
 
 ```csharp
-bot.MessageReceived += async (_, args) =>
+await using var bot = new WeixinBot(new WeixinBotOptions
 {
-    var message = args.Message;
-
-    if (message.Image is not null)
+    CredentialsPath = credentialsPath,
+    OnMessageReceived = async (sender, args) =>
     {
-        var bytes = await bot.DownloadImageAsync(message.Image);
-        await File.WriteAllBytesAsync("image.bin", bytes);
-    }
+        var b = (WeixinBot)sender!;
+        var message = args.Message;
 
-    if (message.File is not null)
-    {
-        var bytes = await bot.DownloadFileAsync(message.File);
-        await File.WriteAllBytesAsync("file.bin", bytes);
-    }
-};
+        if (message.Image is not null)
+        {
+            var bytes = await b.DownloadImageAsync(message.Image);
+            await File.WriteAllBytesAsync("image.bin", bytes);
+        }
+
+        if (message.File is not null)
+        {
+            var bytes = await b.DownloadFileAsync(message.File);
+            await File.WriteAllBytesAsync("file.bin", bytes);
+        }
+    },
+});
 ```
 
-## Events
+## Handlers
 
-`WeixinBot` exposes lifecycle and error events:
+`WeixinBotOptions` includes handler properties for lifecycle and error callbacks:
 
-- `CredentialsLoaded`
-- `LoggedIn`
-- `Started`
-- `Stopped`
-- `MessageReceived`
-- `SessionExpired`
-- `Error`
+- `OnCredentialsLoaded`
+- `OnLoggedIn`
+- `OnStarted`
+- `OnStopped`
+- `OnMessageReceived`
+- `OnSessionExpired`
+- `OnError`
 
 ## Configuration
 
@@ -287,6 +296,14 @@ bot.MessageReceived += async (_, args) =>
 - `CredentialsPath`
 - `CredentialStore`
 - `HttpClient`
+- `LoggerFactory`
+- `OnCredentialsLoaded`
+- `OnLoggedIn`
+- `OnStarted`
+- `OnStopped`
+- `OnMessageReceived`
+- `OnSessionExpired`
+- `OnError`
 
 Defaults:
 

@@ -17,27 +17,23 @@ Console.CancelKeyPress += (_, args) =>
 await using var bot = new WeixinBot(new WeixinBotOptions
 {
     CredentialsPath = credentialsPath,
+    OnCredentialsLoaded = (_, args) =>
+    {
+        Console.WriteLine($"Loaded credentials for bot {args.Credentials.BotId ?? "(unknown)"}.");
+    },
+    OnLoggedIn = (_, args) =>
+    {
+        Console.WriteLine($"Logged in as bot {args.Result.BotId ?? "(unknown)"}.");
+    },
+    OnStarted = (_, _) => Console.WriteLine("Polling started."),
+    OnStopped = (_, _) => Console.WriteLine("Polling stopped."),
+    OnSessionExpired = (_, code) => Console.WriteLine($"Session expired with errcode {code}."),
+    OnError = (_, args) => Console.WriteLine($"SDK error: {args.Exception.Message}, {args.Exception}"),
+    OnMessageReceived = async (sender, args) =>
+    {
+        await HandleMessageAsync((WeixinBot)sender!, args.Message, shutdown.Token);
+    },
 });
-
-bot.CredentialsLoaded += (_, args) =>
-{
-    Console.WriteLine($"Loaded credentials for bot {args.Credentials.BotId ?? "(unknown)"}.");
-};
-
-bot.LoggedIn += (_, args) =>
-{
-    Console.WriteLine($"Logged in as bot {args.Result.BotId ?? "(unknown)"}.");
-};
-
-bot.Started += (_, _) => Console.WriteLine("Polling started.");
-bot.Stopped += (_, _) => Console.WriteLine("Polling stopped.");
-bot.SessionExpired += (_, code) => Console.WriteLine($"Session expired with errcode {code}.");
-bot.Error += (_, args) => Console.WriteLine($"SDK error: {args.Exception.Message}, {args.Exception.ToString()}");
-
-bot.MessageReceived += async (_, args) =>
-{
-    await HandleMessageAsync(bot, args.Message, shutdown.Token);
-};
 
 if (!bot.IsLoggedIn)
 {
