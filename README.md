@@ -18,6 +18,7 @@ This repository contains:
 - Typing indicator support
 - Media download helpers for image, video, file, and voice payloads
 - Configurable API base URL, CDN URL, version header, and `HttpClient`
+- Native AOT-compatible SDK internals with source-generated JSON serialization
 
 ## Requirements
 
@@ -43,6 +44,12 @@ Pack the SDK:
 
 ```powershell
 dotnet pack .\Weixin.Bot.Sdk\Weixin.Bot.Sdk.csproj -c Release --no-build -o .\artifacts\packages
+```
+
+Native AOT smoke test for the sample app:
+
+```powershell
+dotnet publish .\Weixin.Bot.Sdk.Sample\Weixin.Bot.Sdk.Sample.csproj -c Release -r win-x64 -p:PublishAot=true -p:SelfContained=true -o .\artifacts\publish\aot-smoke
 ```
 
 ## Project Structure

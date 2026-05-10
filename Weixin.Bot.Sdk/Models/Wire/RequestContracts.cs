@@ -24,7 +24,7 @@ internal sealed class OutboundMessagePayload
     [JsonPropertyName("client_id")] public string ClientId { get; init; } = string.Empty;
     [JsonPropertyName("message_type")] public int MessageType { get; init; }
     [JsonPropertyName("message_state")] public int MessageState { get; init; }
-    [JsonPropertyName("item_list")] public IEnumerable<MessageItemPayload> Items { get; init; } = [];
+    [JsonPropertyName("item_list")] public MessageItemPayload[] Items { get; init; } = [];
     [JsonPropertyName("context_token")] public string ContextToken { get; init; } = string.Empty;
 }
 

@@ -1,4 +1,5 @@
 using Weixin.Bot.Sdk.Models;
+using Weixin.Bot.Sdk.Serialization;
 
 namespace Weixin.Bot.Sdk.Credentials;
 
@@ -7,12 +8,6 @@ namespace Weixin.Bot.Sdk.Credentials;
 /// </summary>
 public sealed class FileBotCredentialStore : IBotCredentialStore
 {
-    private static readonly JsonSerializerOptions SerializerOptions = new()
-    {
-        WriteIndented = true,
-        PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
-    };
-
     /// <summary>
     /// Initializes a new instance of the <see cref="FileBotCredentialStore"/> class.
     /// </summary>
@@ -41,7 +36,7 @@ public sealed class FileBotCredentialStore : IBotCredentialStore
         }
 
         string json = await File.ReadAllTextAsync(Path, cancellationToken).ConfigureAwait(false);
-        return JsonSerializer.Deserialize<BotCredentials>(json, SerializerOptions);
+        return JsonSerializer.Deserialize(json, BotCredentialJsonSerializerContext.Default.BotCredentials);
     }
 
     /// <inheritdoc />
@@ -63,7 +58,7 @@ public sealed class FileBotCredentialStore : IBotCredentialStore
             UserId = credentials.UserId,
             SavedAt = credentials.SavedAt ?? DateTimeOffset.UtcNow,
         };
-        string json = JsonSerializer.Serialize(payload, SerializerOptions);
+        string json = JsonSerializer.Serialize(payload, BotCredentialJsonSerializerContext.Default.BotCredentials);
         await File.WriteAllTextAsync(Path, json, cancellationToken).ConfigureAwait(false);
     }
 }
