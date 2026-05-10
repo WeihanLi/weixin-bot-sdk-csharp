@@ -22,6 +22,7 @@ internal sealed class WeixinBotApi : IDisposable
 
     private readonly HttpClient _httpClient;
     private readonly bool _ownsHttpClient;
+    private readonly ILogger<WeixinBotApi> _logger;
 
     internal WeixinBotApi(WeixinBotApiOptions? options = null)
     {
@@ -33,6 +34,7 @@ internal sealed class WeixinBotApi : IDisposable
         _httpClient = options.HttpClient ?? new HttpClient();
         _httpClient.DefaultRequestHeaders.TryAddWithoutValidation("iLink-App-ClientVersion", "1");
         _ownsHttpClient = options.HttpClient is null;
+        _logger = (options.LoggerFactory ?? NullLoggerFactory.Instance).CreateLogger<WeixinBotApi>();
     }
 
     internal string BaseUrl { get; set; }
@@ -110,6 +112,7 @@ internal sealed class WeixinBotApi : IDisposable
                     {
                         throw new TimeoutException($"QR code expired {options.MaxQrRefresh} times");
                     }
+                    _logger.LogDebug("QR code expired, refreshing ({Count}/{Max})", refreshCount, options.MaxQrRefresh);
                     qr = await GetQrCodeAsync(options.BotType, cancellationToken).ConfigureAwait(false);
                     if (options.OnQrCode is { } onQrRefresh && !string.IsNullOrWhiteSpace(qr.QrCodeImageContent))
                     {
@@ -138,8 +141,9 @@ internal sealed class WeixinBotApi : IDisposable
                 BaseInfo = BaseInfo(),
             }, WeixinBotApiJsonSerializerContext.Default.GetUpdatesRequest, WeixinBotApiJsonSerializerContext.Default.GetUpdatesResponse, DefaultLongPollTimeout, cancellationToken).ConfigureAwait(false);
         }
-        catch (TimeoutException)
+        catch (TimeoutException ex)
         {
+            _logger.LogTrace(ex, "GetUpdates long-poll timed out (expected)");
             return new GetUpdatesResponse
             {
                 ReturnCode = 0,
@@ -147,8 +151,9 @@ internal sealed class WeixinBotApi : IDisposable
                 GetUpdatesBuffer = updatesBuffer,
             };
         }
-        catch (JsonException)
+        catch (JsonException ex)
         {
+            _logger.LogWarning(ex, "GetUpdates response could not be deserialized");
             return new GetUpdatesResponse
             {
                 ReturnCode = -1,
@@ -293,10 +298,15 @@ internal sealed class WeixinBotApi : IDisposable
             using var cts =  CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
             cts.CancelAfter(DefaultApiTimeout);
             using var response = await _httpClient.SendAsync(request, HttpCompletionOption.ResponseHeadersRead, cts.Token).ConfigureAwait(false);
+            if (!response.IsSuccessStatusCode)
+            {
+                _logger.LogWarning("POST {Endpoint} returned HTTP {StatusCode}", endpoint, (int)response.StatusCode);
+            }
             response.EnsureSuccessStatusCode();
         }
         catch (OperationCanceledException ex) when (!cancellationToken.IsCancellationRequested)
         {
+            _logger.LogWarning("POST {Endpoint} timed out after {TimeoutSeconds:N0}s", endpoint, DefaultApiTimeout.TotalSeconds);
             throw new TimeoutException($"API request to {request.RequestUri} timed out", ex);
         }
     }
@@ -312,12 +322,17 @@ internal sealed class WeixinBotApi : IDisposable
         try
         {
             using var response = await _httpClient.SendAsync(request, HttpCompletionOption.ResponseHeadersRead, cts.Token).ConfigureAwait(false);
+            if (!response.IsSuccessStatusCode)
+            {
+                _logger.LogWarning("{Method} {Endpoint} returned HTTP {StatusCode}", request.Method, request.RequestUri, (int)response.StatusCode);
+            }
             response.EnsureSuccessStatusCode();
             var result = await response.Content.ReadFromJsonAsync(responseTypeInfo, cancellationToken).ConfigureAwait(false);
             return result ?? throw new InvalidOperationException("API response deserialized to null");
         }
         catch (OperationCanceledException ex) when (!cancellationToken.IsCancellationRequested)
         {
+            _logger.LogWarning("{Method} {Endpoint} timed out after {TimeoutSeconds:N0}s", request.Method, request.RequestUri, timeout.TotalSeconds);
             throw new TimeoutException($"API request to {request.RequestUri} timed out after {timeout.TotalSeconds:N0}s", ex);
         }
     }

@@ -7,4 +7,5 @@ internal sealed record WeixinBotApiOptions
     public string? Token { get; init; }
     public string Version { get; init; } = "1.0.0";
     public HttpClient? HttpClient { get; init; }
+    public ILoggerFactory? LoggerFactory { get; init; }
 }

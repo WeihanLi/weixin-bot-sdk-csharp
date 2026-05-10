@@ -46,4 +46,10 @@ public sealed class WeixinBotOptions
     /// Gets a shared <see cref="HttpClient"/> instance to use for API and CDN traffic.
     /// </summary>
     public HttpClient? HttpClient { get; set; }
+
+    /// <summary>
+    /// Gets the logger factory used to create loggers for SDK components.
+    /// When <see langword="null"/>, a no-op logger is used.
+    /// </summary>
+    public ILoggerFactory? LoggerFactory { get; set; }
 }

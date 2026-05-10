@@ -10,12 +10,14 @@ internal sealed class CdnClient : IDisposable
 
     private readonly HttpClient _httpClient;
     private readonly bool _ownsClient;
+    private readonly ILogger<CdnClient> _logger;
 
-    public CdnClient(HttpClient? httpClient = null, string? baseUrl = null)
+    public CdnClient(HttpClient? httpClient = null, string? baseUrl = null, ILoggerFactory? loggerFactory = null)
     {
         _httpClient = httpClient ?? new HttpClient();
         _ownsClient = httpClient is null;
         BaseUrl = baseUrl ?? DefaultBaseUrl;
+        _logger = (loggerFactory ?? NullLoggerFactory.Instance).CreateLogger<CdnClient>();
     }
 
     public string BaseUrl { get; set; }
@@ -31,7 +33,9 @@ internal sealed class CdnClient : IDisposable
     {
         var url = BuildDownloadUrl(encryptedQueryParam, baseUrl);
         using var request = new HttpRequestMessage(HttpMethod.Get, url);
-        return await SendWithTimeoutAsync(request, DefaultTimeout, cancellationToken).ConfigureAwait(false);
+        var data = await SendWithTimeoutAsync(request, DefaultTimeout, cancellationToken).ConfigureAwait(false);
+        _logger.LogDebug("CDN download completed: {Bytes} bytes", data.Length);
+        return data;
     }
 
     public async Task<string> UploadAsync(ReadOnlyMemory<byte> buffer, string uploadParam, string fileKey, byte[] aesKey, string? baseUrl = null, CancellationToken cancellationToken = default)
@@ -75,11 +79,13 @@ internal sealed class CdnClient : IDisposable
                     throw new InvalidOperationException("CDN upload response is missing x-encrypted-param header");
                 }
 
+                _logger.LogDebug("CDN upload succeeded on attempt {Attempt}: {Bytes} bytes", attempt, buffer.Length);
                 return downloadParam;
             }
             catch (Exception ex) when (attempt < UploadMaxRetries && !IsClientError(ex))
             {
                 lastError = ex;
+                _logger.LogWarning(ex, "CDN upload attempt {Attempt} of {MaxRetries} failed, retrying", attempt, UploadMaxRetries);
                 await Task.Delay(TimeSpan.FromSeconds(attempt), cancellationToken).ConfigureAwait(false);
             }
         }
