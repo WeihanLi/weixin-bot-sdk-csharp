@@ -6,7 +6,7 @@ namespace Weixin.Bot.Sdk.Credentials;
 /// <summary>
 /// Loads and persists bot credentials as JSON in a local file.
 /// </summary>
-internal sealed class FileBotCredentialStore : IBotCredentialStore
+public sealed class FileBotCredentialStore : IBotCredentialStore
 {
     /// <summary>
     /// Initializes a new instance of the <see cref="FileBotCredentialStore"/> class.
